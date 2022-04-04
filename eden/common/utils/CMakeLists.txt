@@ -14,10 +14,12 @@ set(utils_headers
   ${CMAKE_CURRENT_SOURCE_DIR}/Synchronized.h
   ${CMAKE_CURRENT_SOURCE_DIR}/Handle.h
   ${CMAKE_CURRENT_SOURCE_DIR}/WinError.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/StringConv.h
 )
 
 set(utils_srcs
   ${CMAKE_CURRENT_SOURCE_DIR}/WinError.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/StringConv.cpp
 )
 
 add_library(utils ${utils_headers} ${utils_srcs})
@@ -43,3 +45,5 @@ install(
   FILES ${utils_headers}
   DESTINATION ${INCLUDE_INSTALL_DIR}/eden/common/utils
 )
+
+add_subdirectory(test)
