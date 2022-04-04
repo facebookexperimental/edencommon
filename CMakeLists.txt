@@ -43,6 +43,9 @@ include_directories(${GMOCK_INCLUDEDIR} ${LIBGMOCK_INCLUDE_DIR})
 include(GoogleTest)
 enable_testing()
 
+
+add_subdirectory(eden/common/utils)
+
 # Install our own CMake package files for dependent projects.
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
@@ -54,5 +57,12 @@ configure_package_config_file(
 )
 install(
   FILES ${CMAKE_CURRENT_BINARY_DIR}/edencommon-config.cmake
+  DESTINATION ${CMAKE_INSTALL_DIR}
+)
+
+install(
+  EXPORT edencommon-exports
+  FILE edencommon-targets.cmake
+  NAMESPACE edencommon::
   DESTINATION ${CMAKE_INSTALL_DIR}
 )
