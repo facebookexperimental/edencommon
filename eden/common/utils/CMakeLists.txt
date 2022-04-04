@@ -10,13 +10,14 @@
 # for all of the utility libraries for edencommon because it makes things a lot
 # easier.
 
-set(utils_headers "Synchronized.h")
+set(utils_headers "Synchronized.h" "Handle.h")
 
 add_library(utils INTERFACE ${utils_headers})
 
 target_link_libraries(utils
   INTERFACE
     Folly::folly
+    glog::glog
 )
 
 target_include_directories(utils INTERFACE
