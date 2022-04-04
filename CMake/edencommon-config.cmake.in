@@ -1,0 +1,18 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+@PACKAGE_INIT@
+
+# We will generate this one cmake file that has all our targets in it. This is
+# how dependent projects find our targets.
+set_and_check(EDENCOMMON_CMAKE_DIR "@PACKAGE_CMAKE_INSTALL_DIR@")
+include("${EDENCOMMON_CMAKE_DIR}/edencommon-targets.cmake")
+
+
+# Here we are just printing that edencommon was found to make debugging issues
+# for dependent projects easier.
+if (NOT edencommon_FIND_QUIETLY)
+    message(STATUS "Found edencommon: ${PACKAGE_PREFIX_DIR}")
+endif()
