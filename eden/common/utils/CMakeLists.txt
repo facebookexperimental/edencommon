@@ -10,17 +10,24 @@
 # for all of the utility libraries for edencommon because it makes things a lot
 # easier.
 
-set(utils_headers "Synchronized.h" "Handle.h")
+set(utils_headers
+  ${CMAKE_CURRENT_SOURCE_DIR}/Synchronized.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/Handle.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/WinError.h
+)
 
-add_library(utils INTERFACE ${utils_headers})
+set(utils_srcs
+  ${CMAKE_CURRENT_SOURCE_DIR}/WinError.cpp
+)
+
+add_library(utils ${utils_headers} ${utils_srcs})
 
 target_link_libraries(utils
-  INTERFACE
     Folly::folly
     glog::glog
 )
 
-target_include_directories(utils INTERFACE
+target_include_directories(utils PUBLIC
   $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
   $<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>
 )
@@ -34,5 +41,5 @@ install(
 
 install(
   FILES ${utils_headers}
-  DESTINATION ${INCLUDE_INSTALL_DIR}
+  DESTINATION ${INCLUDE_INSTALL_DIR}/eden/common/utils
 )

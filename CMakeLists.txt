@@ -23,6 +23,14 @@ set(CMAKE_INSTALL_DIR lib/cmake/edencommon CACHE STRING
     "The subdirectory where CMake package config files should be installed")
 
 
+# CMake include directories
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake"
+  # For shipit-transformed builds
+  "${CMAKE_CURRENT_SOURCE_DIR}/build/fbcode_builder/CMake"
+  ${CMAKE_MODULE_PATH})
+
+include(FBCompilerSettings)
+
 # Setup all the CMake include directories so we can access all the
 # dependenciew we need.
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake"
