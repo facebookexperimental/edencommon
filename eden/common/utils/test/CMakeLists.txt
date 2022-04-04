@@ -5,6 +5,21 @@
 
 
 add_executable(
+  process_name_cache_test
+    "ProcessNameCacheTest.cpp"
+)
+
+target_link_libraries(
+  process_name_cache_test
+  PUBLIC
+    utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(process_name_cache_test)
+
+add_executable(
   string_conv_test
     "StringConvTest.cpp"
 )
