@@ -1,0 +1,25 @@
+[manifest]
+name = zlib
+
+[debs]
+zlib1g-dev
+
+[homebrew]
+zlib
+
+[rpms]
+zlib-devel
+zlib-static
+
+[download]
+url = http://zlib.net/zlib-1.2.12.tar.gz
+sha256 = 91844808532e5ce316b3c010929493c0244f3d37593afd6de04f71821d5136d9
+
+[build.os=windows]
+builder = cmake
+subdir = zlib-1.2.12
+
+# Every platform but windows ships with zlib, so just skip
+# building on not(windows)
+[build.not(os=windows)]
+builder = nop
