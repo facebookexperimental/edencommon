@@ -6,17 +6,21 @@
  */
 
 #pragma once
-#include "folly/portability/Windows.h"
+
+#include <folly/Range.h>
+#include <folly/String.h>
+#include <folly/portability/Windows.h>
 
 #include <algorithm>
 #include <cassert>
 #include <memory>
 #include <string>
+
 #include "eden/common/utils/WinError.h"
-#include "folly/Range.h"
-#include "folly/String.h"
 
 namespace facebook::eden {
+
+#ifdef _WIN32
 
 /**
  * Convert a wide string to a utf-8 encoded string.
@@ -57,5 +61,7 @@ MultiByteStringType wideToMultibyteString(std::wstring_view wideCharPiece) {
  * Convert a utf-8 encoded string to a wide string.
  */
 std::wstring multibyteToWideString(folly::StringPiece multiBytePiece);
+
+#endif
 
 } // namespace facebook::eden

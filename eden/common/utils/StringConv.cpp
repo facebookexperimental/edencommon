@@ -5,11 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#ifdef _WIN32
-
 #include "eden/common/utils/StringConv.h"
 
 namespace facebook::eden {
+
+#ifdef _WIN32
 
 std::wstring multibyteToWideString(folly::StringPiece multiBytePiece) {
   if (multiBytePiece.empty()) {
@@ -35,6 +35,6 @@ std::wstring multibyteToWideString(folly::StringPiece multiBytePiece) {
       GetLastError(), "Failed to convert char to wide char");
 }
 
-} // namespace facebook::eden
-
 #endif
+
+} // namespace facebook::eden

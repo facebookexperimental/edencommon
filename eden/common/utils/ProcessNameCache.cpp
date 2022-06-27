@@ -17,16 +17,13 @@
 #include <folly/logging/xlog.h>
 #include <folly/system/ThreadName.h>
 
+#include "eden/common/utils/Handle.h"
+#include "eden/common/utils/StringConv.h"
 #include "eden/common/utils/Synchronized.h"
 
 #ifdef __APPLE__
 #include <libproc.h> // @manual
 #include <sys/sysctl.h> // @manual
-#endif
-
-#ifdef _WIN32
-#include "eden/common/utils/Handle.h"
-#include "eden/common/utils/StringConv.h"
 #endif
 
 namespace facebook::eden::detail {

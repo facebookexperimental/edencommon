@@ -11,6 +11,7 @@
 #include <folly/portability/Windows.h>
 
 namespace facebook::eden {
+
 /*
  * This is a generic base class to create a handle classes. The handle class
  * with make sure that handle is closed when it goes out of scope. To create a
@@ -109,6 +110,8 @@ class HandleBase {
   }
 };
 
+#ifdef _WIN32
+
 /*
  * Token Handle traits. Token Handle has no defined invalid handle value. We
  * will use nullptr as invalid handle. It would use the standard CloseHandle()
@@ -141,5 +144,7 @@ struct ProcessHandleTraits {
 
 using TokenHandle = HandleBase<TokenHandleTraits>;
 using ProcessHandle = HandleBase<ProcessHandleTraits>;
+
+#endif
 
 } // namespace facebook::eden
