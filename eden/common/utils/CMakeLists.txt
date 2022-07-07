@@ -15,12 +15,14 @@ set(utils_headers
   ${CMAKE_CURRENT_SOURCE_DIR}/Handle.h
   ${CMAKE_CURRENT_SOURCE_DIR}/WinError.h
   ${CMAKE_CURRENT_SOURCE_DIR}/StringConv.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/ProcessName.h
   ${CMAKE_CURRENT_SOURCE_DIR}/ProcessNameCache.h
 )
 
 set(utils_srcs
   ${CMAKE_CURRENT_SOURCE_DIR}/WinError.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/StringConv.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/ProcessName.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/ProcessNameCache.cpp
 )
 

@@ -16,18 +16,13 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "eden/common/utils/ProcessName.h"
 
 namespace facebook::eden {
 
 namespace detail {
 class ProcessNameNode;
 }
-
-/**
- * Process names are arbitrary bytes on POSIX, including embedded zeroes when
- * fetching full command lines, and some UTF-8-ish encoding on Windows.
- */
-using ProcessName = std::string;
 
 /**
  * Represents strong interest in a process name. The name will be available as
@@ -150,38 +145,5 @@ class ProcessNameCache {
   folly::LifoSem sem_;
   std::thread workerThread_;
 };
-
-namespace detail {
-
-/**
- * The number of digits required for a decimal representation of a pid.
- */
-constexpr size_t kMaxDecimalPidLength = 10;
-static_assert(sizeof(pid_t) <= 4);
-
-/**
- * A stack-allocated string with the contents /proc/<pid>/cmdline for any pid.
- */
-using ProcPidCmdLine = std::array<
-    char,
-    6 /* /proc/ */ + kMaxDecimalPidLength + 8 /* /cmdline */ + 1 /* null */>;
-
-/**
- * Returns the ProcPidCmdLine for a given pid. The result is always
- * null-terminated.
- */
-ProcPidCmdLine getProcPidCmdLine(pid_t pid);
-
-/**
- * Given a pid, returns its executable name or <err:###> with the appropriate
- * errno.
- *
- * readPidName only allocates if the resulting executable name does not fit in
- * std::string's small string optimization, which is relatively rare for
- * programs in /usr/bin.
- */
-ProcessName readPidName(pid_t pid);
-
-} // namespace detail
 
 } // namespace facebook::eden
