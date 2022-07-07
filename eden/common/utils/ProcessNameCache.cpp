@@ -26,8 +26,11 @@ class ProcessNameNode {
  public:
   ProcessNameNode(
       folly::SemiFuture<ProcessName> name,
-      std::chrono::steady_clock::time_point d)
-      : name_{std::move(name)}, lastAccess_{d.time_since_epoch()} {}
+      std::chrono::steady_clock::time_point d,
+      ProcessNameCache::Clock& clock)
+      : name_{std::move(name)},
+        lastAccess_{d.time_since_epoch()},
+        clock_{clock} {}
 
   ProcessNameNode(const ProcessNameNode&) = delete;
   ProcessNameNode& operator=(const ProcessNameNode&) = delete;
@@ -38,6 +41,7 @@ class ProcessNameNode {
 
   folly::SemiFuture<ProcessName> name_;
   mutable std::atomic<std::chrono::steady_clock::duration> lastAccess_;
+  ProcessNameCache::Clock& clock_;
 };
 
 } // namespace detail
@@ -90,6 +94,12 @@ class RealThreadLocalCache : public ProcessNameCache::ThreadLocalCache {
 thread_local std::optional<RealThreadLocalCache::Cache>
     RealThreadLocalCache::cache_;
 
+class RealClock : public ProcessNameCache::Clock {
+  std::chrono::steady_clock::time_point now() override {
+    return std::chrono::steady_clock::now();
+  }
+} realClock;
+
 } // namespace
 
 ProcessNameHandle::ProcessNameHandle(
@@ -98,14 +108,14 @@ ProcessNameHandle::ProcessNameHandle(
 
 const ProcessName* ProcessNameHandle::get_optional() const {
   XCHECK(node_) << "attempting to use moved-from ProcessNameHandle";
-  auto now = std::chrono::steady_clock::now();
+  auto now = node_->clock_.now();
   node_->recordAccess(now);
   return node_->name_.isReady() ? &node_->name_.value() : nullptr;
 }
 
 const ProcessName& ProcessNameHandle::get() const {
   XCHECK(node_) << "attempting to use moved-from ProcessNameHandle";
-  auto now = std::chrono::steady_clock::now();
+  auto now = node_->clock_.now();
   node_->recordAccess(now);
   node_->name_.wait();
   return node_->name_.value();
@@ -113,10 +123,14 @@ const ProcessName& ProcessNameHandle::get() const {
 
 ProcessNameCache::ProcessNameCache(
     std::chrono::nanoseconds expiry,
-    ThreadLocalCache* threadLocalCache)
+    ThreadLocalCache* threadLocalCache,
+    Clock* clock,
+    ProcessName (*readName)(pid_t))
     : expiry_{expiry},
       threadLocalCache_{
-          threadLocalCache ? *threadLocalCache : realThreadLocalCache} {
+          threadLocalCache ? *threadLocalCache : realThreadLocalCache},
+      clock_{clock ? *clock : realClock},
+      readName_{readName ? readName : readProcessName} {
   workerThread_ = std::thread{[this] {
     folly::setThreadName("ProcessNameCacheWorker");
     workerThread();
@@ -130,7 +144,7 @@ ProcessNameCache::~ProcessNameCache() {
 }
 
 ProcessNameHandle ProcessNameCache::lookup(pid_t pid) {
-  auto now = std::chrono::steady_clock::now();
+  auto now = clock_.now();
 
   if (auto node = threadLocalCache_.get(pid, now)) {
     return ProcessNameHandle{std::move(node)};
@@ -143,7 +157,8 @@ ProcessNameHandle ProcessNameCache::lookup(pid_t pid) {
 
   auto [p, f] = folly::makePromiseContract<ProcessName>();
   state->lookupQueue.emplace_back(pid, std::move(p));
-  auto node = std::make_shared<detail::ProcessNameNode>(std::move(f), now);
+  auto node =
+      std::make_shared<detail::ProcessNameNode>(std::move(f), now, clock_);
   state->names.emplace(pid, node);
   threadLocalCache_.put(pid, node);
   state.unlock();
@@ -152,7 +167,7 @@ ProcessNameHandle ProcessNameCache::lookup(pid_t pid) {
 }
 
 void ProcessNameCache::add(pid_t pid) {
-  auto now = std::chrono::steady_clock::now();
+  auto now = clock_.now();
 
   // add() is called by very high-throughput, low-latency code, such as the
   // FUSE processing loop. It's common for a single thread to repeatedly look up
@@ -207,8 +222,8 @@ void ProcessNameCache::add(pid_t pid) {
       [&](auto& wlock) -> folly::Unit {
         auto [p, f] = folly::makePromiseContract<ProcessName>();
         wlock->lookupQueue.emplace_back(pid, std::move(p));
-        auto node =
-            std::make_shared<detail::ProcessNameNode>(std::move(f), now);
+        auto node = std::make_shared<detail::ProcessNameNode>(
+            std::move(f), now, clock_);
         wlock->names.emplace(pid, node);
         threadLocalCache_.put(pid, std::move(node));
 
@@ -299,10 +314,10 @@ void ProcessNameCache::workerThread() {
     // As described in ProcessNameCache::add() above, it is critical this work
     // be done outside of the state lock.
     for (auto& [pid, p] : lookupQueue) {
-      p.setWith([pid = pid] { return readProcessName(pid); });
+      p.setWith([this, pid = pid] { return readName_(pid); });
     }
 
-    auto now = std::chrono::steady_clock::now();
+    auto now = clock_.now();
 
     // Bump the water level by two so that it's guaranteed to catch up.
     // Imagine names.size() == 200 with waterLevel = 0, and add() is

@@ -8,6 +8,8 @@
 #include "eden/common/utils/ProcessNameCache.h"
 #include <folly/portability/GTest.h>
 
+namespace {
+
 using namespace std::literals;
 using namespace facebook::eden;
 
@@ -52,3 +54,84 @@ TEST(ProcessNameCache, addFromMultipleThreads) {
   }
   EXPECT_EQ(1, results.size());
 }
+
+struct Fixture : ::testing::Test,
+                 ProcessNameCache::ThreadLocalCache,
+                 ProcessNameCache::Clock {
+  Fixture() : th{this}, pnc{std::chrono::minutes{5}, this, this, readName} {}
+
+  static ProcessName readName(pid_t pid) {
+    auto names = ThisHolder::this_->names.wlock();
+    return (*names)[pid];
+  }
+
+  // ThreadLocalCache
+
+  bool has(pid_t, std::chrono::steady_clock::time_point) override {
+    return false;
+  }
+  NodePtr get(pid_t, std::chrono::steady_clock::time_point) override {
+    return nullptr;
+  }
+  void put(pid_t, NodePtr) override {}
+
+  // Clock
+
+  std::chrono::steady_clock::time_point now() override {
+    return std::chrono::steady_clock::time_point{
+        std::chrono::steady_clock::duration{
+            now_.load(std::memory_order_acquire)}};
+  }
+
+  void advance(unsigned minutes) {
+    now_.fetch_add(
+        std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+            std::chrono::minutes{minutes})
+            .count(),
+        std::memory_order_release);
+  }
+
+  // Allows static functions to access the current fixture. Assumes tests are
+  // single-threaded.
+  struct ThisHolder {
+    explicit ThisHolder(Fixture* fixture) {
+      this_ = fixture;
+    }
+    ~ThisHolder() {
+      this_ = nullptr;
+    }
+    static Fixture* this_;
+  } th;
+
+  ProcessNameCache pnc;
+
+  // std::chrono::steady_clock::time_point cannot be atomic, so store duration
+  // since epoch as a raw integer.
+  std::atomic<std::chrono::steady_clock::duration::rep> now_{};
+  folly::Synchronized<std::map<pid_t, ProcessName>> names;
+};
+
+Fixture* Fixture::ThisHolder::this_ = nullptr;
+
+TEST_F(Fixture, lookup_expires) {
+  (*names.wlock())[10] = "watchman";
+  auto lookup = pnc.lookup(10);
+  EXPECT_EQ("watchman", lookup.get());
+
+  advance(10);
+
+  // For the name to expire, we either need to add some new pids and trip the
+  // water level check, or call getAllProcessNames.
+  (*names.wlock())[11] = "new";
+  (*names.wlock())[12] = "newer";
+  EXPECT_EQ("new", pnc.lookup(11).get());
+  EXPECT_EQ("newer", pnc.lookup(12).get());
+
+  (*names.wlock())[10] = "edenfs";
+  EXPECT_EQ("edenfs", pnc.lookup(10).get());
+
+  // But the old lookup should still have the old name.
+  EXPECT_EQ("watchman", lookup.get());
+}
+
+} // namespace

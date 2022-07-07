@@ -86,13 +86,22 @@ class ProcessNameCache {
     virtual void put(pid_t pid, NodePtr node) = 0;
   };
 
+  class Clock {
+   public:
+    virtual ~Clock() = default;
+    virtual std::chrono::steady_clock::time_point now() = 0;
+  };
+
   /**
    * Create a cache that maintains process names until `expiry` has elapsed
    * without them being referenced or observed.
    */
   explicit ProcessNameCache(
       std::chrono::nanoseconds expiry = std::chrono::minutes{5},
-      ThreadLocalCache* threadLocalCache = nullptr);
+      // For testing:
+      ThreadLocalCache* threadLocalCache = nullptr,
+      Clock* clock = nullptr,
+      ProcessName (*readName)(pid_t) = nullptr);
 
   ~ProcessNameCache();
 
@@ -141,6 +150,8 @@ class ProcessNameCache {
 
   const std::chrono::nanoseconds expiry_;
   ThreadLocalCache& threadLocalCache_;
+  Clock& clock_;
+  ProcessName (*readName_)(pid_t);
   folly::Synchronized<State> state_;
   folly::LifoSem sem_;
   std::thread workerThread_;
