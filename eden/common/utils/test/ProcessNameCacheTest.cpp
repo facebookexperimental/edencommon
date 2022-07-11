@@ -55,10 +55,30 @@ TEST(ProcessNameCache, addFromMultipleThreads) {
   EXPECT_EQ(1, results.size());
 }
 
-struct Fixture : ::testing::Test,
-                 ProcessNameCache::ThreadLocalCache,
-                 ProcessNameCache::Clock {
-  Fixture() : th{this}, pnc{std::chrono::minutes{5}, this, this, readName} {}
+class FakeClock : public ProcessNameCache::Clock {
+ public:
+  std::chrono::steady_clock::time_point now() override {
+    return std::chrono::steady_clock::time_point{
+        std::chrono::steady_clock::duration{
+            now_.load(std::memory_order_acquire)}};
+  }
+
+  void advance(unsigned minutes) {
+    now_.fetch_add(
+        std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+            std::chrono::minutes{minutes})
+            .count(),
+        std::memory_order_release);
+  }
+
+ private:
+  // std::chrono::steady_clock::time_point cannot be atomic, so store duration
+  // since epoch as a raw integer.
+  std::atomic<std::chrono::steady_clock::duration::rep> now_{};
+};
+
+struct Fixture : ::testing::Test, ProcessNameCache::ThreadLocalCache {
+  Fixture() : th{this}, pnc{std::chrono::minutes{5}, this, &clock, readName} {}
 
   static ProcessName readName(pid_t pid) {
     auto names = ThisHolder::this_->names.wlock();
@@ -75,22 +95,6 @@ struct Fixture : ::testing::Test,
   }
   void put(pid_t, NodePtr) override {}
 
-  // Clock
-
-  std::chrono::steady_clock::time_point now() override {
-    return std::chrono::steady_clock::time_point{
-        std::chrono::steady_clock::duration{
-            now_.load(std::memory_order_acquire)}};
-  }
-
-  void advance(unsigned minutes) {
-    now_.fetch_add(
-        std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-            std::chrono::minutes{minutes})
-            .count(),
-        std::memory_order_release);
-  }
-
   // Allows static functions to access the current fixture. Assumes tests are
   // single-threaded.
   struct ThisHolder {
@@ -103,11 +107,9 @@ struct Fixture : ::testing::Test,
     static Fixture* this_;
   } th;
 
+  FakeClock clock;
   ProcessNameCache pnc;
 
-  // std::chrono::steady_clock::time_point cannot be atomic, so store duration
-  // since epoch as a raw integer.
-  std::atomic<std::chrono::steady_clock::duration::rep> now_{};
   folly::Synchronized<std::map<pid_t, ProcessName>> names;
 };
 
@@ -118,7 +120,7 @@ TEST_F(Fixture, lookup_expires) {
   auto lookup = pnc.lookup(10);
   EXPECT_EQ("watchman", lookup.get());
 
-  advance(10);
+  clock.advance(10);
 
   // For the name to expire, we either need to add some new pids and trip the
   // water level check, or call getAllProcessNames.
