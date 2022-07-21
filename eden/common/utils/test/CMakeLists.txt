@@ -33,3 +33,18 @@ target_link_libraries(
 )
 
 gtest_discover_tests(string_conv_test)
+
+add_executable(
+  option_set_test
+    "OptionSetTest.cpp"
+)
+
+target_link_libraries(
+  option_set_test
+  PUBLIC
+    utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(option_set_test)

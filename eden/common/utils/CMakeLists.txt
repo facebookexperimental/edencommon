@@ -17,6 +17,7 @@ set(utils_headers
   ${CMAKE_CURRENT_SOURCE_DIR}/StringConv.h
   ${CMAKE_CURRENT_SOURCE_DIR}/ProcessName.h
   ${CMAKE_CURRENT_SOURCE_DIR}/ProcessNameCache.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/OptionSet.h
 )
 
 set(utils_srcs
