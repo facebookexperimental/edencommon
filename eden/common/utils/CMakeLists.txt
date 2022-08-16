@@ -27,20 +27,20 @@ set(utils_srcs
   ${CMAKE_CURRENT_SOURCE_DIR}/ProcessNameCache.cpp
 )
 
-add_library(utils ${utils_headers} ${utils_srcs})
+add_library(edencommon_utils ${utils_headers} ${utils_srcs})
 
-target_link_libraries(utils
+target_link_libraries(edencommon_utils
     Folly::folly
     glog::glog
 )
 
-target_include_directories(utils PUBLIC
+target_include_directories(edencommon_utils PUBLIC
   $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
   $<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>
 )
 
 install(
-  TARGETS utils
+  TARGETS edencommon_utils
   EXPORT edencommon-exports
   LIBRARY DESTINATION "${LIB_INSTALL_DIR}"
   ARCHIVE DESTINATION "${LIB_INSTALL_DIR}"

@@ -12,7 +12,7 @@ add_executable(
 target_link_libraries(
   process_name_cache_test
   PUBLIC
-    utils
+    edencommon_utils
     Folly::folly_test_util
     ${LIBGMOCK_LIBRARIES}
 )
@@ -27,7 +27,7 @@ add_executable(
 target_link_libraries(
   string_conv_test
   PUBLIC
-    utils
+    edencommon_utils
     Folly::folly_test_util
     ${LIBGMOCK_LIBRARIES}
 )
@@ -42,7 +42,7 @@ add_executable(
 target_link_libraries(
   option_set_test
   PUBLIC
-    utils
+    edencommon_utils
     Folly::folly_test_util
     ${LIBGMOCK_LIBRARIES}
 )
