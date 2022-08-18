@@ -7,11 +7,23 @@
 
 #include "eden/common/utils/ProcessName.h"
 
+#ifdef _WIN32
+// Windows headers have to be included before everything else,
+// otherwise we get macro definition conflicts through
+// transitive includes.
+#define STRICT
+#define NOMINMAX
+#include "Windows.h" // @manual
+#include "winternl.h" // @manual
+#endif
+
 #include <folly/Exception.h>
 #include <folly/FileUtil.h>
 #include <folly/lang/ToAscii.h>
 #include "eden/common/utils/Handle.h"
 #include "eden/common/utils/StringConv.h"
+
+#include <optional>
 
 #ifdef __APPLE__
 #include <libproc.h> // @manual
@@ -21,6 +33,121 @@
 namespace facebook::eden {
 
 namespace detail {
+
+#ifdef _WIN32
+// Microsoft recommends using runtime dynamic linking for applications
+// that want to use `NtQueryInformationProcess`.
+// https://docs.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntqueryinformationprocess
+//
+// This is a simple RAII wrapper for linking `ntdll.dll` at runtime.
+class DynamicallyLinkedLibrary {
+ public:
+  explicit DynamicallyLinkedLibrary(const char* name)
+      : handle_(LoadLibraryA(name)) {}
+
+  template <class T>
+  T getProcAddress(const char* procName) {
+    if (handle_ != NULL) {
+      return (T)GetProcAddress(handle_, procName);
+    }
+    return nullptr;
+  }
+
+  ~DynamicallyLinkedLibrary() {
+    if (handle_ != NULL) {
+      FreeLibrary(handle_);
+    }
+  }
+
+ private:
+  HMODULE handle_ = NULL;
+};
+
+std::optional<std::string> getProcessCommandLine(pid_t pid) {
+  static DynamicallyLinkedLibrary ntdll("ntdll.dll");
+  static auto queryProcessInformation =
+      ntdll.getProcAddress<decltype(&NtQueryInformationProcess)>(
+          "NtQueryInformationProcess");
+
+  ProcessHandle process{
+      OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid)};
+
+  if (!process) {
+    return std::nullopt;
+  }
+
+  PROCESS_BASIC_INFORMATION processInfo{};
+
+  {
+    ULONG readLength{};
+    if (NTSTATUS status = queryProcessInformation(
+            process.get(),
+            ProcessBasicInformation,
+            &processInfo,
+            sizeof(processInfo),
+            &readLength);
+        !NT_SUCCESS(status)) {
+      return fmt::format(
+          FMT_STRING("NtQueryInformationProcess failed with {}"), status);
+    }
+
+    // This has never happened during testing.
+    // Technically we could hit this if the layout of PROCESS_BASIC_INFORMATION
+    // changes.
+    if (!processInfo.PebBaseAddress) {
+      return "<err:PEB is null>";
+    }
+  }
+
+  // The information we need is a couple pointers away
+  // from PEB, so we'll need several calls to `ReadProcessMemory`.
+  PEB peb{};
+
+  if (SIZE_T numBytesRead{}; !ReadProcessMemory(
+          process.get(),
+          processInfo.PebBaseAddress,
+          &peb,
+          sizeof(peb),
+          &numBytesRead)) {
+    auto err = GetLastError();
+    return fmt::format(
+        FMT_STRING("<ReadProcessMemory err:{}>"), win32ErrorToString(err));
+  }
+
+  RTL_USER_PROCESS_PARAMETERS userProcessParams{};
+
+  if (SIZE_T numBytesRead{}; !ReadProcessMemory(
+          process.get(),
+          peb.ProcessParameters,
+          &userProcessParams,
+          sizeof(userProcessParams),
+          &numBytesRead)) {
+    auto err = GetLastError();
+    return fmt::format(
+        FMT_STRING("<ReadProcessMemory err:{}>"), win32ErrorToString(err));
+  }
+
+  std::wstring cmd;
+  // `Length` is in bytes, not including the terminating character
+  // https://docs.microsoft.com/en-us/windows/win32/api/subauth/ns-subauth-unicode_string
+  cmd.resize(userProcessParams.CommandLine.Length / sizeof(WCHAR));
+  static_assert(sizeof(wchar_t) == sizeof(WCHAR));
+
+  if (SIZE_T numBytesRead{}; !ReadProcessMemory(
+          process.get(),
+          userProcessParams.CommandLine.Buffer,
+          &cmd[0],
+          userProcessParams.CommandLine.Length,
+          &numBytesRead)) {
+    auto err = GetLastError();
+    return fmt::format(
+        FMT_STRING("<ReadProcessMemory err:{}>"), win32ErrorToString(err));
+  }
+
+  return wideToMultibyteString<std::string>(cmd);
+}
+
+#endif // #ifdef _WIN32
 
 ProcPidCmdLine getProcPidCmdLine(pid_t pid) {
   ProcPidCmdLine path;
@@ -160,26 +287,31 @@ ProcessName readProcessName(pid_t pid) {
 
   return extractCommandLineFromProcArgs(procargs, len).str();
 #elif _WIN32
-  ProcessHandle handle{
-      OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)};
-  if (!handle) {
-    auto err = GetLastError();
-    return fmt::format(FMT_STRING("<err:{}>"), win32ErrorToString(err));
-  }
+  if (std::optional<std::string> cmd = detail::getProcessCommandLine(pid);
+      cmd) {
+    return std::move(*cmd);
+  } else {
+    ProcessHandle handle{
+        OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)};
+    if (!handle) {
+      auto err = GetLastError();
+      return fmt::format(FMT_STRING("<err:{}>"), win32ErrorToString(err));
+    }
 
-  // MAX_PATH on Windows is only 260 characters, but on recent Windows, this
-  // constant doesn't represent the actual maximum length of a path, since
-  // there is no exact value for it, and QueryFullProcessImageName doesn't
-  // appear to be helpful in giving us the actual size of the path, we just
-  // use a large enough value.
-  wchar_t path[SHRT_MAX];
-  DWORD size = SHRT_MAX;
-  if (QueryFullProcessImageNameW(handle.get(), 0, path, &size) == 0) {
-    auto err = GetLastError();
-    return fmt::format(FMT_STRING("<err:{}>"), win32ErrorToString(err));
-  }
+    // MAX_PATH on Windows is only 260 characters, but on recent Windows, this
+    // constant doesn't represent the actual maximum length of a path, since
+    // there is no exact value for it, and QueryFullProcessImageName doesn't
+    // appear to be helpful in giving us the actual size of the path, we just
+    // use a large enough value.
+    wchar_t path[SHRT_MAX];
+    DWORD size = SHRT_MAX;
+    if (QueryFullProcessImageNameW(handle.get(), 0, path, &size) == 0) {
+      auto err = GetLastError();
+      return fmt::format(FMT_STRING("<err:{}>"), win32ErrorToString(err));
+    }
 
-  return wideToMultibyteString<std::string>(path);
+    return wideToMultibyteString<std::string>(path);
+  }
 #else
   char target[1024];
   const auto fd = folly::openNoInt(
