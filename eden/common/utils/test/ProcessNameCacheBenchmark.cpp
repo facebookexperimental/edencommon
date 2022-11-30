@@ -8,11 +8,19 @@
 #include "eden/common/utils/ProcessNameCache.h"
 
 #include <benchmark/benchmark.h>
+#include <folly/logging/LoggerDB.h>
 #include "eden/common/utils/benchharness/Bench.h"
 
 using namespace facebook::eden;
 
 struct ProcessNameCacheFixture : benchmark::Fixture {
+  ProcessNameCacheFixture() {
+    // Initializer the logger singleton so it doesn't get initialized during
+    // global teardown. This is the classic race between atexit() and static
+    // initialization on MSVCRT.
+    folly::LoggerDB::get();
+  }
+
   ProcessNameCache processNameCache;
 };
 
