@@ -6,6 +6,9 @@
  */
 
 #include "eden/common/utils/benchharness/Bench.h"
+#include <fmt/core.h>
+#include <folly/ExceptionString.h>
+#include <folly/init/Init.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
@@ -42,6 +45,24 @@ StatAccumulator measureClockOverhead() noexcept {
   }
 
   return accum;
+}
+
+int runBenchmarkMain(int argc, char** argv) {
+  ::benchmark::Initialize(&argc, argv);
+  folly::init(&argc, &argv);
+  if (::benchmark::ReportUnrecognizedArguments(argc, argv)) {
+    return 1;
+  }
+  try {
+    ::benchmark::RunSpecifiedBenchmarks();
+  } catch (const std::exception& e) {
+    fmt::print(
+        stderr,
+        "uncaught exception from benchmarks: {}\n",
+        folly::exceptionStr(e));
+    throw;
+  }
+  return 0;
 }
 
 } // namespace facebook::eden

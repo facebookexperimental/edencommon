@@ -8,7 +8,6 @@
 #pragma once
 
 #include <benchmark/benchmark.h>
-#include <folly/init/Init.h>
 #include <stdint.h>
 #include <algorithm>
 #include <limits>
@@ -62,14 +61,12 @@ uint64_t getTime() noexcept;
  */
 StatAccumulator measureClockOverhead() noexcept;
 
+int runBenchmarkMain(int argc, char** argv);
+
 } // namespace facebook::eden
 
-#define EDEN_BENCHMARK_MAIN()                                 \
-  int main(int argc, char** argv) {                           \
-    ::benchmark::Initialize(&argc, argv);                     \
-    folly::init(&argc, &argv);                                \
-    if (::benchmark::ReportUnrecognizedArguments(argc, argv)) \
-      return 1;                                               \
-    ::benchmark::RunSpecifiedBenchmarks();                    \
-  }                                                           \
+#define EDEN_BENCHMARK_MAIN()                              \
+  int main(int argc, char** argv) {                        \
+    return ::facebook::eden::runBenchmarkMain(argc, argv); \
+  }                                                        \
   int main(int, char**)
