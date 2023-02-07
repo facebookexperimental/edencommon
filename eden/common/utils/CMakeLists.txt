@@ -18,6 +18,7 @@ set(utils_headers
   ${CMAKE_CURRENT_SOURCE_DIR}/ProcessName.h
   ${CMAKE_CURRENT_SOURCE_DIR}/ProcessNameCache.h
   ${CMAKE_CURRENT_SOURCE_DIR}/OptionSet.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/FileUtils.h
 )
 
 set(utils_srcs
@@ -25,6 +26,7 @@ set(utils_srcs
   ${CMAKE_CURRENT_SOURCE_DIR}/StringConv.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/ProcessName.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/ProcessNameCache.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/FileUtils.cpp
 )
 
 add_library(edencommon_utils ${utils_headers} ${utils_srcs})
