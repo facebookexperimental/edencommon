@@ -13,6 +13,11 @@
 
 #include <folly/portability/Windows.h>
 
+namespace folly {
+template <typename T>
+class Try;
+}
+
 namespace facebook::eden {
 
 // We declare our own copy here because Ntifs.h is not included in the
@@ -52,7 +57,7 @@ struct ReparseDataDeleter {
 using ReparseDataBuffer =
     std::unique_ptr<REPARSE_DATA_BUFFER, ReparseDataDeleter>;
 
-ReparseDataBuffer getReparseData(HANDLE fd);
+folly::Try<ReparseDataBuffer> getReparseData(HANDLE fd);
 
 } // namespace facebook::eden
 

@@ -11,13 +11,15 @@
 
 #include <winioctl.h> // @manual
 
+#include <folly/Try.h>
+
 namespace facebook::eden {
 
-ReparseDataBuffer getReparseData(HANDLE fd) {
+folly::Try<ReparseDataBuffer> getReparseData(HANDLE fd) {
   auto buffer = ReparseDataBuffer(static_cast<REPARSE_DATA_BUFFER*>(
       malloc(MAXIMUM_REPARSE_DATA_BUFFER_SIZE)));
   if (!buffer) {
-    throw std::bad_alloc();
+    return folly::Try<ReparseDataBuffer>(std::bad_alloc());
   }
 
   DWORD written;
@@ -34,7 +36,7 @@ ReparseDataBuffer getReparseData(HANDLE fd) {
   if (!result && GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
     buffer.reset(static_cast<REPARSE_DATA_BUFFER*>(malloc(written)));
     if (!buffer) {
-      throw std::bad_alloc();
+      return folly::Try<ReparseDataBuffer>(std::bad_alloc());
     }
 
     result = DeviceIoControl(
@@ -49,11 +51,11 @@ ReparseDataBuffer getReparseData(HANDLE fd) {
   }
 
   if (!result) {
-    throw std::system_error(
-        GetLastError(), std::system_category(), "FSCTL_GET_REPARSE_POINT");
+    return folly::Try<ReparseDataBuffer>(std::system_error(
+        GetLastError(), std::system_category(), "FSCTL_GET_REPARSE_POINT"));
   }
 
-  return buffer;
+  return folly::Try<ReparseDataBuffer>(std::move(buffer));
 }
 
 } // namespace facebook::eden
