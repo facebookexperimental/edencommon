@@ -43,6 +43,17 @@ struct REPARSE_DATA_BUFFER {
       WCHAR PathBuffer[1];
     } MountPointReparseBuffer;
     struct {
+      // The format here is not officially documented, so this format is what
+      // we have infered from our own local testing, and what's mentioned on
+      // github: https://github.com/microsoft/ProjFS-Managed-API/issues/55
+      UINT UnknownMaybeVersion;
+      BYTE ProjFsFlags;
+      // we think there are 3 more flag bits here, then an id for the virtual
+      // root, then a provider id, content id, and the original path of the
+      // placeholder.
+      UCHAR RestOfDataBuffer[1];
+    } ProjFsReparseBuffer;
+    struct {
       UCHAR DataBuffer[1];
     } GenericReparseBuffer;
   };
