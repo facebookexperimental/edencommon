@@ -5,17 +5,25 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "eden/common/utils/ProcessName.h"
-
-#ifdef _WIN32
 // Windows headers have to be included before everything else,
 // otherwise we get macro definition conflicts through
 // transitive includes.
+#ifdef _WIN32
+
+#ifndef STRICT
 #define STRICT
-#define NOMINMAX
-#include "Windows.h" // @manual
-#include "winternl.h" // @manual
 #endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#include <windows.h> // @manual
+#include <winternl.h> // @manual
+
+#endif
+
+#include "eden/common/utils/ProcessName.h"
+#include "eden/common/utils/WinError.h"
 
 #include <folly/Exception.h>
 #include <folly/FileUtil.h>
