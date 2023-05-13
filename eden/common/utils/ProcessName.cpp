@@ -9,14 +9,8 @@
 // otherwise we get macro definition conflicts through
 // transitive includes.
 #ifdef _WIN32
-
-#ifndef STRICT
-#define STRICT
-#endif
-
 #include <windows.h> // @manual
 #include <winternl.h> // @manual
-
 #endif
 
 #include "eden/common/utils/ProcessName.h"
