@@ -13,9 +13,6 @@
 #ifndef STRICT
 #define STRICT
 #endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
 
 #include <windows.h> // @manual
 #include <winternl.h> // @manual
