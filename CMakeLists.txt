@@ -6,6 +6,7 @@
 
 # Cmake Project setup
 cmake_minimum_required(VERSION 3.8)
+set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_NO_CYCLES ON)
 
 project("edencommon" LANGUAGES CXX C)
 
