@@ -49,6 +49,11 @@ class ProcessId {
     return ProcessId(pid, Unchecked{});
   }
 
+  /**
+   * Returns the ProcessId identifying the calling process.
+   */
+  static ProcessId current() noexcept;
+
   uint32_t get() const noexcept {
     return pid_;
   }

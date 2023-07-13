@@ -11,6 +11,14 @@
 #include <ostream>
 #include <type_traits>
 
+#ifdef _WIN32
+#include <windows.h> // @manual
+// windows.h has to come first. Don't alphabetize, clang-format.
+#include <processthreadsapi.h> // @manual
+#else
+#include <unistd.h> // @manual
+#endif
+
 namespace facebook::eden {
 
 static_assert(4 == sizeof(ProcessId));
@@ -20,6 +28,10 @@ static_assert(std::is_nothrow_move_assignable_v<ProcessId>);
 static_assert(std::is_nothrow_default_constructible_v<OptionalProcessId>);
 static_assert(std::is_nothrow_move_constructible_v<OptionalProcessId>);
 static_assert(std::is_nothrow_move_assignable_v<OptionalProcessId>);
+
+const char* InvalidProcessId::what() const noexcept {
+  return "Invalid process ID";
+}
 
 void ProcessId::assertValid() {
 #ifndef _WIN32
@@ -34,8 +46,12 @@ void ProcessId::assertValid() {
 #endif
 }
 
-const char* InvalidProcessId::what() const noexcept {
-  return "Invalid process ID";
+ProcessId ProcessId::current() noexcept {
+#ifdef _WIN32
+  return ProcessId{GetCurrentProcessId()};
+#else
+  return ProcessId{static_cast<uint32_t>(getpid())};
+#endif
 }
 
 void OptionalProcessId::throwBadAccess() {
