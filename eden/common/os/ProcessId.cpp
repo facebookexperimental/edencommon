@@ -11,12 +11,12 @@
 #include <ostream>
 #include <type_traits>
 
+#include <folly/system/Pid.h>
+
 #ifdef _WIN32
 #include <windows.h> // @manual
 // windows.h has to come first. Don't alphabetize, clang-format.
 #include <processthreadsapi.h> // @manual
-#else
-#include <unistd.h> // @manual
 #endif
 
 namespace facebook::eden {
@@ -48,9 +48,14 @@ void ProcessId::assertValid() {
 
 ProcessId ProcessId::current() noexcept {
 #ifdef _WIN32
+  // On Windows, there's no need to cache GetCurrentProcessId(). No syscall is
+  // required: process ID is stored in the PEB which is reachable from the TEB.
   return ProcessId{GetCurrentProcessId()};
 #else
-  return ProcessId{static_cast<uint32_t>(getpid())};
+  // On Linux/glibc, getpid() is an unconditional syscall, and costs about 250
+  // nanoseconds. On macOS, it only costs a couple nanoseconds, but caching
+  // doesn't hurt.
+  return ProcessId{static_cast<uint32_t>(folly::get_cached_pid())};
 #endif
 }
 
