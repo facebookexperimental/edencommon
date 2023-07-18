@@ -7,7 +7,10 @@
 
 #pragma once
 
-#include <fmt/core.h>
+// When we upgrade to fmt 10, we should be able to include <fmt/core.h> here
+// again. fmt 8 has a bug when including only fmt/core.h and compiling with
+// C++20.
+#include <fmt/format.h>
 #include <stdint.h>
 #include <exception>
 #include <functional>
