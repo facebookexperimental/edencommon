@@ -18,6 +18,7 @@ set(utils_headers
   ${CMAKE_CURRENT_SOURCE_DIR}/ProcessName.h
   ${CMAKE_CURRENT_SOURCE_DIR}/ProcessNameCache.h
   ${CMAKE_CURRENT_SOURCE_DIR}/OptionSet.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/FileOffset.h
   ${CMAKE_CURRENT_SOURCE_DIR}/FileUtils.h
 )
 
