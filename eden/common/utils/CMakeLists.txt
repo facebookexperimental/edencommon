@@ -10,26 +10,10 @@
 # for all of the utility libraries for edencommon because it makes things a lot
 # easier.
 
-set(utils_headers
-  ${CMAKE_CURRENT_SOURCE_DIR}/Synchronized.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/Handle.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/WinError.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/StringConv.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/ProcessName.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/ProcessNameCache.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/OptionSet.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/FileUtils.h
-)
+file(GLOB utils_headers CONFIGURE_DEPENDS *.h)
+file(GLOB utils_sources CONFIGURE_DEPENDS *.cpp)
 
-set(utils_srcs
-  ${CMAKE_CURRENT_SOURCE_DIR}/WinError.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/StringConv.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/ProcessName.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/ProcessNameCache.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/FileUtils.cpp
-)
-
-add_library(edencommon_utils ${utils_headers} ${utils_srcs})
+add_library(edencommon_utils ${utils_headers} ${utils_sources})
 
 target_link_libraries(edencommon_utils
     Folly::folly

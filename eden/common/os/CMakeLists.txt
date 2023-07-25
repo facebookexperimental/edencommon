@@ -3,13 +3,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-set(os_headers
-  ProcessId.h
-)
+file(GLOB os_headers CONFIGURE_DEPENDS *.h)
+file(GLOB os_sources CONFIGURE_DEPENDS *.cpp)
 
 add_library(edencommon_os
   ${os_headers}
-  ProcessId.cpp
+  ${os_sources}
 )
 
 target_link_libraries(edencommon_os

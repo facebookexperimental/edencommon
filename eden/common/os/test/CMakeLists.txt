@@ -3,10 +3,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+file(GLOB os_tests CONFIGURE_DEPENDS *.cpp)
 
 add_executable(
   os_test
-  ProcessIdTest.cpp
+  ${os_tests}
 )
 
 target_link_libraries(
