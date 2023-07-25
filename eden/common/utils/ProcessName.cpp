@@ -13,6 +13,10 @@
 #include <winternl.h> // @manual
 #endif
 
+#ifdef ERROR
+#undef ERROR // wingdi.h
+#endif
+
 #include "eden/common/utils/ProcessName.h"
 #include "eden/common/utils/WinError.h"
 
