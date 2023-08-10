@@ -38,7 +38,7 @@ class OptionSet {
    */
   /* implicit */ constexpr OptionSet(zero_t) {}
 
-  ///* implicit */ constexpr OptionSet(Derived v) : value_{v.value_} {}
+  /* implicit */ constexpr OptionSet(const Derived& v) : value_{v.value_} {}
 
   /* implicit */ constexpr OptionSet(std::initializer_list<Derived> args) {
     for (Derived v : args) {
