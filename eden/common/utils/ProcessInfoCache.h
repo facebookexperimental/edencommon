@@ -16,32 +16,32 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "eden/common/utils/ProcessName.h"
+#include "eden/common/utils/ProcessInfo.h"
 
 namespace facebook::eden {
 
 namespace detail {
-class ProcessNameNode;
+class ProcessInfoNode;
 }
 
 /**
  * Represents strong interest in a process name. The name will be available as
- * long as the ProcessNameHandle is held.
+ * long as the ProcessInfoHandle is held.
  *
- * ProcessNameHandle does not guarantee the name won't be evicted from the
- * ProcessNameCache, but for any given ProcessNameHandle, the name will be
+ * ProcessInfoHandle does not guarantee the name won't be evicted from the
+ * ProcessInfoCache, but for any given ProcessInfoHandle, the name will be
  * available and will not change.
  */
-class ProcessNameHandle {
+class ProcessInfoHandle {
  public:
   // Private in spirit. Not actually usable outside of the .cpp file.
-  explicit ProcessNameHandle(std::shared_ptr<detail::ProcessNameNode> node);
+  explicit ProcessInfoHandle(std::shared_ptr<detail::ProcessInfoNode> node);
 
-  ProcessNameHandle(const ProcessNameHandle&) = default;
-  ProcessNameHandle(ProcessNameHandle&&) = default;
+  ProcessInfoHandle(const ProcessInfoHandle&) = default;
+  ProcessInfoHandle(ProcessInfoHandle&&) = default;
 
-  ProcessNameHandle& operator=(const ProcessNameHandle&) = default;
-  ProcessNameHandle& operator=(ProcessNameHandle&&) = default;
+  ProcessInfoHandle& operator=(const ProcessInfoHandle&) = default;
+  ProcessInfoHandle& operator=(ProcessInfoHandle&&) = default;
 
   /**
    * Name lookups are asynchronous. Returns nullptr if it's not available yet,
@@ -56,25 +56,25 @@ class ProcessNameHandle {
    * with the process of retrieving a process name or command line, such as a
    * FUSE request handler.
    *
-   * May throw, notably if the ProcessNameCache is destroyed before it could
+   * May throw, notably if the ProcessInfoCache is destroyed before it could
    * read the process name.
    */
   const ProcessName& get() const;
 
  private:
-  std::shared_ptr<detail::ProcessNameNode> node_;
+  std::shared_ptr<detail::ProcessInfoNode> node_;
 };
 
-class ProcessNameCache {
+class ProcessInfoCache {
  public:
   class ThreadLocalCache {
    public:
-    using NodePtr = std::shared_ptr<detail::ProcessNameNode>;
+    using NodePtr = std::shared_ptr<detail::ProcessInfoNode>;
 
     virtual ~ThreadLocalCache() = default;
     /// Returns whether this thread has recently seen a node for this pid. Does
     /// not imply get() will return a non-null NodePtr.
-    /// has() is an optimization that, if true, prevents the ProcessNameCache
+    /// has() is an optimization that, if true, prevents the ProcessInfoCache
     /// from queuing a lookup.
     virtual bool has(pid_t pid, std::chrono::steady_clock::time_point now) = 0;
     /// Returns a reference to a node if it exists in the thread-local cache.
@@ -96,19 +96,19 @@ class ProcessNameCache {
    * Create a cache that maintains process names until `expiry` has elapsed
    * without them being referenced or observed.
    */
-  explicit ProcessNameCache(
+  explicit ProcessInfoCache(
       std::chrono::nanoseconds expiry = std::chrono::minutes{5},
       // For testing:
       ThreadLocalCache* threadLocalCache = nullptr,
       Clock* clock = nullptr,
       ProcessName (*readName)(pid_t) = nullptr);
 
-  ~ProcessNameCache();
+  ~ProcessInfoCache();
 
   /**
    * Performs a non-blocking lookup request for a pid's name.
    */
-  ProcessNameHandle lookup(pid_t pid);
+  ProcessInfoHandle lookup(pid_t pid);
 
   /**
    * Records a reference to a pid. This is called by performance-critical code.
@@ -135,7 +135,7 @@ class ProcessNameCache {
 
  private:
   struct State {
-    std::unordered_map<pid_t, std::shared_ptr<detail::ProcessNameNode>> names;
+    std::unordered_map<pid_t, std::shared_ptr<detail::ProcessInfoNode>> names;
 
     bool workerThreadShouldStop = false;
     // The following queues are intentionally unbounded. add() cannot block.

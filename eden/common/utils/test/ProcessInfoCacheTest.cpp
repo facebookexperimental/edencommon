@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "eden/common/utils/ProcessNameCache.h"
+#include "eden/common/utils/ProcessInfoCache.h"
 #include <folly/portability/GTest.h>
 
 namespace {
@@ -13,7 +13,7 @@ namespace {
 using namespace std::literals;
 using namespace facebook::eden;
 
-TEST(ProcessNameCache, getProcPidCmdLine) {
+TEST(ProcessInfoCache, getProcPidCmdLine) {
   using namespace facebook::eden::detail;
   EXPECT_EQ("/proc/0/cmdline"s, getProcPidCmdLine(0).data());
   EXPECT_EQ("/proc/1234/cmdline"s, getProcPidCmdLine(1234).data());
@@ -23,31 +23,31 @@ TEST(ProcessNameCache, getProcPidCmdLine) {
   EXPECT_EQ(longestPath.size(), strlen(longestPath.data()) + 1);
 }
 
-TEST(ProcessNameCache, readMyPidsName) {
-  ProcessNameCache processNameCache;
-  processNameCache.add(getpid());
-  auto results = processNameCache.getAllProcessNames();
+TEST(ProcessInfoCache, readMyPidsName) {
+  ProcessInfoCache processInfoCache;
+  processInfoCache.add(getpid());
+  auto results = processInfoCache.getAllProcessNames();
   EXPECT_NE("", results[getpid()]);
 }
 
-TEST(ProcessNameCache, expireMyPidsName) {
-  ProcessNameCache processNameCache{0ms};
-  processNameCache.add(getpid());
-  auto results = processNameCache.getAllProcessNames();
+TEST(ProcessInfoCache, expireMyPidsName) {
+  ProcessInfoCache processInfoCache{0ms};
+  processInfoCache.add(getpid());
+  auto results = processInfoCache.getAllProcessNames();
   EXPECT_EQ(0, results.size());
 }
 
-TEST(ProcessNameCache, addFromMultipleThreads) {
-  ProcessNameCache processNameCache;
+TEST(ProcessInfoCache, addFromMultipleThreads) {
+  ProcessInfoCache processInfoCache;
 
   size_t kThreadCount = 32;
   std::vector<std::thread> threads;
   threads.reserve(kThreadCount);
   for (size_t i = 0; i < kThreadCount; ++i) {
-    threads.emplace_back([&] { processNameCache.add(getpid()); });
+    threads.emplace_back([&] { processInfoCache.add(getpid()); });
   }
 
-  auto results = processNameCache.getAllProcessNames();
+  auto results = processInfoCache.getAllProcessNames();
 
   for (auto& thread : threads) {
     thread.join();
@@ -55,7 +55,7 @@ TEST(ProcessNameCache, addFromMultipleThreads) {
   EXPECT_EQ(1, results.size());
 }
 
-class FakeClock : public ProcessNameCache::Clock {
+class FakeClock : public ProcessInfoCache::Clock {
  public:
   std::chrono::steady_clock::time_point now() override {
     return std::chrono::steady_clock::time_point{
@@ -77,8 +77,8 @@ class FakeClock : public ProcessNameCache::Clock {
   std::atomic<std::chrono::steady_clock::duration::rep> now_{};
 };
 
-struct Fixture : ::testing::Test, ProcessNameCache::ThreadLocalCache {
-  Fixture() : th{this}, pnc{std::chrono::minutes{5}, this, &clock, readName} {}
+struct Fixture : ::testing::Test, ProcessInfoCache::ThreadLocalCache {
+  Fixture() : th{this}, pic{std::chrono::minutes{5}, this, &clock, readName} {}
 
   static ProcessName readName(pid_t pid) {
     auto names = ThisHolder::this_->names.wlock();
@@ -108,7 +108,7 @@ struct Fixture : ::testing::Test, ProcessNameCache::ThreadLocalCache {
   } th;
 
   FakeClock clock;
-  ProcessNameCache pnc;
+  ProcessInfoCache pic;
 
   folly::Synchronized<std::map<pid_t, ProcessName>> names;
 };
@@ -117,7 +117,7 @@ Fixture* Fixture::ThisHolder::this_ = nullptr;
 
 TEST_F(Fixture, lookup_expires) {
   (*names.wlock())[10] = "watchman";
-  auto lookup = pnc.lookup(10);
+  auto lookup = pic.lookup(10);
   EXPECT_EQ("watchman", lookup.get());
 
   clock.advance(10);
@@ -126,11 +126,11 @@ TEST_F(Fixture, lookup_expires) {
   // water level check, or call getAllProcessNames.
   (*names.wlock())[11] = "new";
   (*names.wlock())[12] = "newer";
-  EXPECT_EQ("new", pnc.lookup(11).get());
-  EXPECT_EQ("newer", pnc.lookup(12).get());
+  EXPECT_EQ("new", pic.lookup(11).get());
+  EXPECT_EQ("newer", pic.lookup(12).get());
 
   (*names.wlock())[10] = "edenfs";
-  EXPECT_EQ("edenfs", pnc.lookup(10).get());
+  EXPECT_EQ("edenfs", pic.lookup(10).get());
 
   // But the old lookup should still have the old name.
   EXPECT_EQ("watchman", lookup.get());

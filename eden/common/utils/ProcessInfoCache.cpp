@@ -5,12 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "eden/common/utils/ProcessNameCache.h"
+#include "eden/common/utils/ProcessInfoCache.h"
 
-#include <optional>
-#include <vector>
-
-#include <fmt/format.h>
 #include <folly/MapUtil.h>
 #include <folly/container/EvictingCacheMap.h>
 #include <folly/logging/xlog.h>
@@ -22,18 +18,18 @@ namespace facebook::eden {
 
 namespace detail {
 
-class ProcessNameNode {
+class ProcessInfoNode {
  public:
-  ProcessNameNode(
+  ProcessInfoNode(
       folly::SemiFuture<ProcessName> name,
       std::chrono::steady_clock::time_point d,
-      ProcessNameCache::Clock& clock)
+      ProcessInfoCache::Clock& clock)
       : name_{std::move(name)},
         lastAccess_{d.time_since_epoch()},
         clock_{clock} {}
 
-  ProcessNameNode(const ProcessNameNode&) = delete;
-  ProcessNameNode& operator=(const ProcessNameNode&) = delete;
+  ProcessInfoNode(const ProcessInfoNode&) = delete;
+  ProcessInfoNode& operator=(const ProcessInfoNode&) = delete;
 
   void recordAccess(std::chrono::steady_clock::time_point now) const {
     lastAccess_.store(now.time_since_epoch(), std::memory_order_release);
@@ -41,7 +37,7 @@ class ProcessNameNode {
 
   folly::SemiFuture<ProcessName> name_;
   mutable std::atomic<std::chrono::steady_clock::duration> lastAccess_;
-  ProcessNameCache::Clock& clock_;
+  ProcessInfoCache::Clock& clock_;
 };
 
 } // namespace detail
@@ -51,7 +47,7 @@ namespace {
 /// 256 threads
 constexpr size_t kThreadLocalCacheSize = 256;
 
-class RealThreadLocalCache : public ProcessNameCache::ThreadLocalCache {
+class RealThreadLocalCache : public ProcessInfoCache::ThreadLocalCache {
  public:
   bool has(pid_t pid, std::chrono::steady_clock::time_point /*now*/) override {
     // NB: Does not increment the lastAccess timestamp.
@@ -79,7 +75,7 @@ class RealThreadLocalCache : public ProcessNameCache::ThreadLocalCache {
 
  private:
   using Cache =
-      folly::EvictingCacheMap<pid_t, std::weak_ptr<detail::ProcessNameNode>>;
+      folly::EvictingCacheMap<pid_t, std::weak_ptr<detail::ProcessInfoNode>>;
 
   Cache& cache() {
     if (!cache_) {
@@ -94,7 +90,7 @@ class RealThreadLocalCache : public ProcessNameCache::ThreadLocalCache {
 thread_local std::optional<RealThreadLocalCache::Cache>
     RealThreadLocalCache::cache_;
 
-class RealClock : public ProcessNameCache::Clock {
+class RealClock : public ProcessInfoCache::Clock {
   std::chrono::steady_clock::time_point now() override {
     return std::chrono::steady_clock::now();
   }
@@ -102,26 +98,26 @@ class RealClock : public ProcessNameCache::Clock {
 
 } // namespace
 
-ProcessNameHandle::ProcessNameHandle(
-    std::shared_ptr<detail::ProcessNameNode> node)
+ProcessInfoHandle::ProcessInfoHandle(
+    std::shared_ptr<detail::ProcessInfoNode> node)
     : node_{std::move(node)} {}
 
-const ProcessName* ProcessNameHandle::get_optional() const {
-  XCHECK(node_) << "attempting to use moved-from ProcessNameHandle";
+const ProcessName* ProcessInfoHandle::get_optional() const {
+  XCHECK(node_) << "attempting to use moved-from ProcessInfoHandle";
   auto now = node_->clock_.now();
   node_->recordAccess(now);
   return node_->name_.isReady() ? &node_->name_.value() : nullptr;
 }
 
-const ProcessName& ProcessNameHandle::get() const {
-  XCHECK(node_) << "attempting to use moved-from ProcessNameHandle";
+const ProcessName& ProcessInfoHandle::get() const {
+  XCHECK(node_) << "attempting to use moved-from ProcessInfoHandle";
   auto now = node_->clock_.now();
   node_->recordAccess(now);
   node_->name_.wait();
   return node_->name_.value();
 }
 
-ProcessNameCache::ProcessNameCache(
+ProcessInfoCache::ProcessInfoCache(
     std::chrono::nanoseconds expiry,
     ThreadLocalCache* threadLocalCache,
     Clock* clock,
@@ -132,41 +128,41 @@ ProcessNameCache::ProcessNameCache(
       clock_{clock ? *clock : realClock},
       readName_{readName ? readName : readProcessName} {
   workerThread_ = std::thread{[this] {
-    folly::setThreadName("ProcessNameCacheWorker");
+    folly::setThreadName("ProcessInfoCacheWorker");
     workerThread();
   }};
 }
 
-ProcessNameCache::~ProcessNameCache() {
+ProcessInfoCache::~ProcessInfoCache() {
   state_.wlock()->workerThreadShouldStop = true;
   sem_.post();
   workerThread_.join();
 }
 
-ProcessNameHandle ProcessNameCache::lookup(pid_t pid) {
+ProcessInfoHandle ProcessInfoCache::lookup(pid_t pid) {
   auto now = clock_.now();
 
   if (auto node = threadLocalCache_.get(pid, now)) {
-    return ProcessNameHandle{std::move(node)};
+    return ProcessInfoHandle{std::move(node)};
   }
 
   auto state = state_.wlock();
   if (auto* nodep = folly::get_ptr(state->names, pid)) {
-    return ProcessNameHandle{*nodep};
+    return ProcessInfoHandle{*nodep};
   }
 
   auto [p, f] = folly::makePromiseContract<ProcessName>();
   state->lookupQueue.emplace_back(pid, std::move(p));
   auto node =
-      std::make_shared<detail::ProcessNameNode>(std::move(f), now, clock_);
+      std::make_shared<detail::ProcessInfoNode>(std::move(f), now, clock_);
   state->names.emplace(pid, node);
   threadLocalCache_.put(pid, node);
   state.unlock();
   sem_.post();
-  return ProcessNameHandle{std::move(node)};
+  return ProcessInfoHandle{std::move(node)};
 }
 
-void ProcessNameCache::add(pid_t pid) {
+void ProcessInfoCache::add(pid_t pid) {
   auto now = clock_.now();
 
   // add() is called by very high-throughput, low-latency code, such as the
@@ -222,7 +218,7 @@ void ProcessNameCache::add(pid_t pid) {
       [&](auto& wlock) -> folly::Unit {
         auto [p, f] = folly::makePromiseContract<ProcessName>();
         wlock->lookupQueue.emplace_back(pid, std::move(p));
-        auto node = std::make_shared<detail::ProcessNameNode>(
+        auto node = std::make_shared<detail::ProcessInfoNode>(
             std::move(f), now, clock_);
         wlock->names.emplace(pid, node);
         threadLocalCache_.put(pid, std::move(node));
@@ -234,7 +230,7 @@ void ProcessNameCache::add(pid_t pid) {
       });
 }
 
-std::map<pid_t, ProcessName> ProcessNameCache::getAllProcessNames() {
+std::map<pid_t, ProcessName> ProcessInfoCache::getAllProcessNames() {
   auto [promise, future] =
       folly::makePromiseContract<std::map<pid_t, ProcessName>>();
 
@@ -244,7 +240,7 @@ std::map<pid_t, ProcessName> ProcessNameCache::getAllProcessNames() {
   return std::move(future).get();
 }
 
-void ProcessNameCache::clearExpired(
+void ProcessInfoCache::clearExpired(
     std::chrono::steady_clock::time_point now,
     State& state) {
   // TODO: When we can rely on C++17, it might be cheaper to move the node
@@ -261,7 +257,7 @@ void ProcessNameCache::clearExpired(
   }
 }
 
-void ProcessNameCache::workerThread() {
+void ProcessInfoCache::workerThread() {
   // Double-buffered work queues.
   std::vector<std::pair<pid_t, folly::Promise<ProcessName>>> lookupQueue;
   std::vector<folly::Promise<std::map<pid_t, ProcessName>>> getQueue;
@@ -285,7 +281,7 @@ void ProcessNameCache::workerThread() {
         // Shutdown is only initiated by the destructor and since gets
         // are blocking, this implies no gets can be pending.
         XCHECK(state->getQueue.empty())
-            << "ProcessNameCache destroyed while gets were pending!";
+            << "ProcessInfoCache destroyed while gets were pending!";
         return;
       }
 
@@ -308,10 +304,10 @@ void ProcessNameCache::workerThread() {
     // add(1), get(), add(2), get() processed all at once would return both
     // 1 and 2 from both get() calls.
     //
-    // TODO: It might be worth skipping this during ProcessNameCache shutdown,
+    // TODO: It might be worth skipping this during ProcessInfoCache shutdown,
     // even if it did mean any pending get() calls could miss pids added prior.
     //
-    // As described in ProcessNameCache::add() above, it is critical this work
+    // As described in ProcessInfoCache::add() above, it is critical this work
     // be done outside of the state lock.
     for (auto& [pid, p] : lookupQueue) {
       p.setWith([this, pid = pid] { return readName_(pid); });
@@ -353,7 +349,7 @@ void ProcessNameCache::workerThread() {
   }
 }
 
-std::optional<std::string> ProcessNameCache::getProcessName(pid_t pid) {
+std::optional<std::string> ProcessInfoCache::getProcessName(pid_t pid) {
   auto state = state_.rlock();
   if (auto* nodep = folly::get_ptr(state->names, pid)) {
     if ((*nodep)->name_.isReady()) {

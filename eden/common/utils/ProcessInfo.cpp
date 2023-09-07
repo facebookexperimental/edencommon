@@ -17,7 +17,7 @@
 #undef ERROR // wingdi.h
 #endif
 
-#include "eden/common/utils/ProcessName.h"
+#include "eden/common/utils/ProcessInfo.h"
 #include "eden/common/utils/WinError.h"
 
 #include <folly/Exception.h>
