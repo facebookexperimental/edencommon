@@ -22,6 +22,7 @@
 
 #include <folly/Exception.h>
 #include <folly/FileUtil.h>
+#include <folly/String.h>
 #include <folly/lang/ToAscii.h>
 #include "eden/common/utils/Handle.h"
 #include "eden/common/utils/StringConv.h"
@@ -30,6 +31,7 @@
 
 #ifdef __APPLE__
 #include <libproc.h> // @manual
+#include <sys/proc_info.h> // @manual
 #include <sys/sysctl.h> // @manual
 #endif
 
@@ -336,6 +338,59 @@ ProcessName readProcessName(pid_t pid) {
     return std::string{target, target + rv};
   }
 #endif
+}
+
+ProcessSimpleName readProcessSimpleName(FOLLY_MAYBE_UNUSED pid_t pid) {
+#ifdef __APPLE__
+  // Max length of process name returned from proc_name
+  // https://opensource.apple.com/source/xnu/xnu-1228.0.2/bsd/sys/proc_info.h.auto.html
+  std::vector<char> name;
+  int32_t len = 2 * MAXCOMLEN + 1;
+  name.resize(len);
+  auto namePtr = name.data();
+
+  auto ret = proc_name(pid, namePtr, len);
+  if (ret > len) {
+    // This should never happen.
+    XLOGF(INFO, "proc_name returned length greater than provided buffer.");
+  } else if (ret != 0) {
+    name.resize(ret);
+    return ProcessSimpleName(std::string(name.begin(), name.end()));
+  } else {
+    XLOGF(DBG2, "proc_name failed: {} ({})", folly::errnoStr(errno), errno);
+  }
+#endif
+
+  return ProcessSimpleName("<unknown>");
+}
+
+std::optional<pid_t> getParentProcessId(FOLLY_MAYBE_UNUSED pid_t pid) {
+  std::optional<pid_t> ppid;
+#ifdef __APPLE__
+  // Future improvements might include caching of parent pid lookups. However,
+  // as pids are recycled over time we would need some way to invalidate the
+  // cache when necessary.
+  proc_bsdinfo info;
+  int32_t size = sizeof(info);
+  auto ret = proc_pidinfo(
+      pid,
+      PROC_PIDTBSDINFO,
+      true, // find zombies
+      &info,
+      size);
+
+  if (ret == 0) {
+    XLOGF(DBG3, "proc_pidinfo failed: {} ({})", folly::errnoStr(errno), errno);
+  } else if (ret != size) {
+    XLOGF(WARN, "proc_pidinfo failed returned an invalid size");
+  } else if (info.pbi_ppid <= 0) {
+    XLOGF(WARN, "proc_pidinfo returned an invalid parent pid.");
+  } else {
+    ppid.emplace(info.pbi_ppid);
+  }
+#endif
+
+  return ppid;
 }
 
 } // namespace facebook::eden

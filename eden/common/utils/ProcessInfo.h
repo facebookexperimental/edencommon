@@ -9,6 +9,7 @@
 
 #include <folly/portability/SysTypes.h>
 #include <array>
+#include <optional>
 #include <string>
 
 namespace facebook::eden {
@@ -26,6 +27,13 @@ namespace facebook::eden {
 using ProcessName = std::string;
 
 /**
+ * Stores a simple, humand-readable, name of the process. This is in
+ * contrast to ProcessName which stores the process command line minus the
+ * process path.
+ */
+using ProcessSimpleName = std::string;
+
+/**
  * Looks up a process name corresponding to the specified process ID.
  *
  * May throw an exception. May also return a synthesized process name including
@@ -34,6 +42,17 @@ using ProcessName = std::string;
  * Attempts to avoid allocation when the process name fits in std::string's SSO.
  */
 ProcessName readProcessName(pid_t pid);
+
+/**
+ * Fetches the process name for the specified process ID. If the pid is invalid
+ * or an error occurs while fetching, returns "<unknown>".
+ */
+ProcessSimpleName readProcessSimpleName(pid_t pid);
+
+/**
+ * Get the parent process ID of the specified process ID, if one exists.
+ */
+std::optional<pid_t> getParentProcessId(pid_t pid);
 
 namespace detail {
 
