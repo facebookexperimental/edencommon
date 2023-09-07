@@ -25,11 +25,11 @@ class ProcessInfoNode;
 }
 
 /**
- * Represents strong interest in a process name. The name will be available as
+ * Represents strong interest in a process info. The info will be available as
  * long as the ProcessInfoHandle is held.
  *
- * ProcessInfoHandle does not guarantee the name won't be evicted from the
- * ProcessInfoCache, but for any given ProcessInfoHandle, the name will be
+ * ProcessInfoHandle does not guarantee the info won't be evicted from the
+ * ProcessInfoCache, but for any given ProcessInfoHandle, the info will be
  * available and will not change.
  */
 class ProcessInfoHandle {
@@ -44,22 +44,22 @@ class ProcessInfoHandle {
   ProcessInfoHandle& operator=(ProcessInfoHandle&&) = default;
 
   /**
-   * Name lookups are asynchronous. Returns nullptr if it's not available yet,
-   * and the name if it is.
+   * Info lookups are asynchronous. Returns nullptr if it's not available yet,
+   * and the info if it is.
    */
-  const ProcessName* get_optional() const;
+  const ProcessInfo* get_optional() const;
 
   /**
-   * Blocks until the process name is available.
+   * Blocks until the process info is available.
    *
    * Be careful only to use this function from threads that aren't reentrant
-   * with the process of retrieving a process name or command line, such as a
-   * FUSE request handler.
+   * with the process of retrieving a process info, such as a  FUSE request
+   * handler.
    *
    * May throw, notably if the ProcessInfoCache is destroyed before it could
-   * read the process name.
+   * read the process info.
    */
-  const ProcessName& get() const;
+  const ProcessInfo& get() const;
 
  private:
   std::shared_ptr<detail::ProcessInfoNode> node_;
@@ -93,7 +93,7 @@ class ProcessInfoCache {
   };
 
   /**
-   * Create a cache that maintains process names until `expiry` has elapsed
+   * Create a cache that maintains process infos until `expiry` has elapsed
    * without them being referenced or observed.
    */
   explicit ProcessInfoCache(
@@ -101,18 +101,18 @@ class ProcessInfoCache {
       // For testing:
       ThreadLocalCache* threadLocalCache = nullptr,
       Clock* clock = nullptr,
-      ProcessName (*readName)(pid_t) = nullptr);
+      ProcessInfo (*readInfo)(pid_t) = nullptr);
 
   ~ProcessInfoCache();
 
   /**
-   * Performs a non-blocking lookup request for a pid's name.
+   * Performs a non-blocking lookup request for a pid's info.
    */
   ProcessInfoHandle lookup(pid_t pid);
 
   /**
    * Records a reference to a pid. This is called by performance-critical code.
-   * Refreshes the expiry on the given pid. The process name is read
+   * Refreshes the expiry on the given pid. The process info is read
    * asynchronously on a background thread.
    *
    * If possible, the caller should avoid calling add() with a series of
@@ -122,36 +122,50 @@ class ProcessInfoCache {
 
   /**
    * Called rarely to produce a map of all non-expired pids to their executable
+   * infos.
+   */
+  std::map<pid_t, ProcessInfo> getAllProcessInfos();
+
+  /**
+   * Called rarely to produce a map of all non-expired pids to their executable
    * names.
    */
   std::map<pid_t, ProcessName> getAllProcessNames();
 
   /**
-   * Called occassionally to produce the command line name of the pid. If the
-   * name has already been resolved this returns that name. Otherwise this will
-   * return nullopt. In the future it may wait for the name to be resolved.
+   * Called occassionally to produce the info of the pid. If the info has
+   * already been resolved this returns that info. Otherwise this will return
+   * nullopt. In the future it may wait for the info to be resolved.
+   */
+  std::optional<ProcessInfo> getProcessInfo(pid_t pid);
+
+  /**
+   * Called occassionally to produce the name of the pid. If the info has
+   * already been resolved this returns that info's name. Otherwise this will
+   * return nullopt.
    */
   std::optional<ProcessName> getProcessName(pid_t pid);
 
  private:
   struct State {
-    std::unordered_map<pid_t, std::shared_ptr<detail::ProcessInfoNode>> names;
+    std::unordered_map<pid_t, std::shared_ptr<detail::ProcessInfoNode>> infos;
 
     bool workerThreadShouldStop = false;
     // The following queues are intentionally unbounded. add() cannot block.
     // TODO: We could set a high limit on the length of the queue and drop
     // requests if necessary.
-    std::vector<std::pair<pid_t, folly::Promise<ProcessName>>> lookupQueue;
-    std::vector<folly::Promise<std::map<pid_t, ProcessName>>> getQueue;
+    std::vector<std::pair<pid_t, folly::Promise<ProcessInfo>>> lookupQueue;
+    std::vector<folly::Promise<std::map<pid_t, ProcessInfo>>> getAllQueue;
   };
 
   void clearExpired(std::chrono::steady_clock::time_point now, State& state);
   void workerThread();
+  static ProcessInfo readProcessInfo(pid_t pid);
 
   const std::chrono::nanoseconds expiry_;
   ThreadLocalCache& threadLocalCache_;
   Clock& clock_;
-  ProcessName (*readName_)(pid_t);
+  ProcessInfo (*readInfo_)(pid_t);
   folly::Synchronized<State> state_;
   folly::LifoSem sem_;
   std::thread workerThread_;

@@ -33,10 +33,9 @@ TEST(ProcessInfoCache, readMyPidsName) {
 TEST(ProcessInfoCache, expireMyPidsName) {
   ProcessInfoCache processInfoCache{0ms};
   processInfoCache.add(getpid());
-  auto results = processInfoCache.getAllProcessNames();
+  auto results = processInfoCache.getAllProcessInfos();
   EXPECT_EQ(0, results.size());
 }
-
 TEST(ProcessInfoCache, addFromMultipleThreads) {
   ProcessInfoCache processInfoCache;
 
@@ -47,8 +46,7 @@ TEST(ProcessInfoCache, addFromMultipleThreads) {
     threads.emplace_back([&] { processInfoCache.add(getpid()); });
   }
 
-  auto results = processInfoCache.getAllProcessNames();
-
+  auto results = processInfoCache.getAllProcessInfos();
   for (auto& thread : threads) {
     thread.join();
   }
@@ -78,11 +76,11 @@ class FakeClock : public ProcessInfoCache::Clock {
 };
 
 struct Fixture : ::testing::Test, ProcessInfoCache::ThreadLocalCache {
-  Fixture() : th{this}, pic{std::chrono::minutes{5}, this, &clock, readName} {}
+  Fixture() : th{this}, pic{std::chrono::minutes{5}, this, &clock, readInfo} {}
 
-  static ProcessName readName(pid_t pid) {
-    auto names = ThisHolder::this_->names.wlock();
-    return (*names)[pid];
+  static ProcessInfo readInfo(pid_t pid) {
+    auto infos = ThisHolder::this_->infos.wlock();
+    return (*infos)[pid];
   }
 
   // ThreadLocalCache
@@ -110,30 +108,30 @@ struct Fixture : ::testing::Test, ProcessInfoCache::ThreadLocalCache {
   FakeClock clock;
   ProcessInfoCache pic;
 
-  folly::Synchronized<std::map<pid_t, ProcessName>> names;
+  folly::Synchronized<std::map<pid_t, ProcessInfo>> infos;
 };
 
 Fixture* Fixture::ThisHolder::this_ = nullptr;
 
 TEST_F(Fixture, lookup_expires) {
-  (*names.wlock())[10] = "watchman";
+  (*infos.wlock())[10] = {0, "watchman", "watchman"};
   auto lookup = pic.lookup(10);
-  EXPECT_EQ("watchman", lookup.get());
+  EXPECT_EQ("watchman", lookup.get().name);
 
   clock.advance(10);
 
-  // For the name to expire, we either need to add some new pids and trip the
-  // water level check, or call getAllProcessNames.
-  (*names.wlock())[11] = "new";
-  (*names.wlock())[12] = "newer";
-  EXPECT_EQ("new", pic.lookup(11).get());
-  EXPECT_EQ("newer", pic.lookup(12).get());
+  // For the info to expire, we either need to add some new pids and trip the
+  // water level check, or call getAllProcessInfos.
+  (*infos.wlock())[11] = {0, "new", "new"};
+  (*infos.wlock())[12] = {0, "newer", "newer"};
+  EXPECT_EQ("new", pic.lookup(11).get().name);
+  EXPECT_EQ("newer", pic.lookup(12).get().name);
 
-  (*names.wlock())[10] = "edenfs";
-  EXPECT_EQ("edenfs", pic.lookup(10).get());
+  (*infos.wlock())[10] = {0, "edenfs", "edenfs"};
+  EXPECT_EQ("edenfs", pic.lookup(10).get().name);
 
-  // But the old lookup should still have the old name.
-  EXPECT_EQ("watchman", lookup.get());
+  // But the old lookup should still have the old info.
+  EXPECT_EQ("watchman", lookup.get().name);
 }
 
 } // namespace

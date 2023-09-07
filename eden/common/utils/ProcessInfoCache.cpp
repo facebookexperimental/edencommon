@@ -21,10 +21,10 @@ namespace detail {
 class ProcessInfoNode {
  public:
   ProcessInfoNode(
-      folly::SemiFuture<ProcessName> name,
+      folly::SemiFuture<ProcessInfo> info,
       std::chrono::steady_clock::time_point d,
       ProcessInfoCache::Clock& clock)
-      : name_{std::move(name)},
+      : info_{std::move(info)},
         lastAccess_{d.time_since_epoch()},
         clock_{clock} {}
 
@@ -35,7 +35,7 @@ class ProcessInfoNode {
     lastAccess_.store(now.time_since_epoch(), std::memory_order_release);
   }
 
-  folly::SemiFuture<ProcessName> name_;
+  folly::SemiFuture<ProcessInfo> info_;
   mutable std::atomic<std::chrono::steady_clock::duration> lastAccess_;
   ProcessInfoCache::Clock& clock_;
 };
@@ -102,31 +102,31 @@ ProcessInfoHandle::ProcessInfoHandle(
     std::shared_ptr<detail::ProcessInfoNode> node)
     : node_{std::move(node)} {}
 
-const ProcessName* ProcessInfoHandle::get_optional() const {
+const ProcessInfo* ProcessInfoHandle::get_optional() const {
   XCHECK(node_) << "attempting to use moved-from ProcessInfoHandle";
   auto now = node_->clock_.now();
   node_->recordAccess(now);
-  return node_->name_.isReady() ? &node_->name_.value() : nullptr;
+  return node_->info_.isReady() ? &node_->info_.value() : nullptr;
 }
 
-const ProcessName& ProcessInfoHandle::get() const {
+const ProcessInfo& ProcessInfoHandle::get() const {
   XCHECK(node_) << "attempting to use moved-from ProcessInfoHandle";
   auto now = node_->clock_.now();
   node_->recordAccess(now);
-  node_->name_.wait();
-  return node_->name_.value();
+  node_->info_.wait();
+  return node_->info_.value();
 }
 
 ProcessInfoCache::ProcessInfoCache(
     std::chrono::nanoseconds expiry,
     ThreadLocalCache* threadLocalCache,
     Clock* clock,
-    ProcessName (*readName)(pid_t))
+    ProcessInfo (*readInfo)(pid_t))
     : expiry_{expiry},
       threadLocalCache_{
           threadLocalCache ? *threadLocalCache : realThreadLocalCache},
       clock_{clock ? *clock : realClock},
-      readName_{readName ? readName : readProcessName} {
+      readInfo_{readInfo ? readInfo : readProcessInfo} {
   workerThread_ = std::thread{[this] {
     folly::setThreadName("ProcessInfoCacheWorker");
     workerThread();
@@ -147,15 +147,15 @@ ProcessInfoHandle ProcessInfoCache::lookup(pid_t pid) {
   }
 
   auto state = state_.wlock();
-  if (auto* nodep = folly::get_ptr(state->names, pid)) {
+  if (auto* nodep = folly::get_ptr(state->infos, pid)) {
     return ProcessInfoHandle{*nodep};
   }
 
-  auto [p, f] = folly::makePromiseContract<ProcessName>();
+  auto [p, f] = folly::makePromiseContract<ProcessInfo>();
   state->lookupQueue.emplace_back(pid, std::move(p));
   auto node =
       std::make_shared<detail::ProcessInfoNode>(std::move(f), now, clock_);
-  state->names.emplace(pid, node);
+  state->infos.emplace(pid, node);
   threadLocalCache_.put(pid, node);
   state.unlock();
   sem_.post();
@@ -172,10 +172,10 @@ void ProcessInfoCache::add(pid_t pid) {
     return;
   }
 
-  // To optimize for the common case where pid's name is already known, this
+  // To optimize for the common case where pid's info is already known, this
   // code aborts early when we can acquire a reader lock.
   //
-  // When the pid's name is not known, reading the pid's name is done on a
+  // When the pid's info is not known, reading the pid's info is done on a
   // background thread for two reasons:
   //
   // 1. Making a syscall in this high-throughput, low-latency path would slow
@@ -203,24 +203,24 @@ void ProcessInfoCache::add(pid_t pid) {
   // lock is not held.
   //
   // The downside of placing the work on a background thread is that it's
-  // possible for the process making a FUSE request to exit before its name
+  // possible for the process making a FUSE request to exit before its info
   // can be looked up.
 
   tryRlockCheckBeforeUpdate<folly::Unit>(
       state_,
       [&](const auto& state) -> std::optional<folly::Unit> {
-        if (auto* nodep = folly::get_ptr(state.names, pid)) {
+        if (auto* nodep = folly::get_ptr(state.infos, pid)) {
           (*nodep)->recordAccess(now);
           return folly::unit;
         }
         return std::nullopt;
       },
       [&](auto& wlock) -> folly::Unit {
-        auto [p, f] = folly::makePromiseContract<ProcessName>();
+        auto [p, f] = folly::makePromiseContract<ProcessInfo>();
         wlock->lookupQueue.emplace_back(pid, std::move(p));
         auto node = std::make_shared<detail::ProcessInfoNode>(
             std::move(f), now, clock_);
-        wlock->names.emplace(pid, node);
+        wlock->infos.emplace(pid, node);
         threadLocalCache_.put(pid, std::move(node));
 
         wlock.unlock();
@@ -230,14 +230,27 @@ void ProcessInfoCache::add(pid_t pid) {
       });
 }
 
-std::map<pid_t, ProcessName> ProcessInfoCache::getAllProcessNames() {
+std::map<pid_t, ProcessInfo> ProcessInfoCache::getAllProcessInfos() {
   auto [promise, future] =
-      folly::makePromiseContract<std::map<pid_t, ProcessName>>();
+      folly::makePromiseContract<std::map<pid_t, ProcessInfo>>();
 
-  state_.wlock()->getQueue.emplace_back(std::move(promise));
+  state_.wlock()->getAllQueue.emplace_back(std::move(promise));
   sem_.post();
 
   return std::move(future).get();
+}
+
+std::map<pid_t, ProcessName> ProcessInfoCache::getAllProcessNames() {
+  auto allProcessInfos = getAllProcessInfos();
+  std::map<pid_t, ProcessName> allProcessNames;
+  std::transform(
+      allProcessInfos.begin(),
+      allProcessInfos.end(),
+      std::inserter(allProcessNames, allProcessNames.end()),
+      [](const auto& item) {
+        return std::make_pair(item.first, item.second.name);
+      });
+  return allProcessNames;
 }
 
 void ProcessInfoCache::clearExpired(
@@ -245,13 +258,13 @@ void ProcessInfoCache::clearExpired(
     State& state) {
   // TODO: When we can rely on C++17, it might be cheaper to move the node
   // handles into another map and deallocate them outside of the lock.
-  auto iter = state.names.begin();
-  while (iter != state.names.end()) {
+  auto iter = state.infos.begin();
+  while (iter != state.infos.end()) {
     auto next = std::next(iter);
     if (now.time_since_epoch() -
             iter->second->lastAccess_.load(std::memory_order_seq_cst) >=
         expiry_) {
-      state.names.erase(iter);
+      state.infos.erase(iter);
     }
     iter = next;
   }
@@ -259,17 +272,17 @@ void ProcessInfoCache::clearExpired(
 
 void ProcessInfoCache::workerThread() {
   // Double-buffered work queues.
-  std::vector<std::pair<pid_t, folly::Promise<ProcessName>>> lookupQueue;
-  std::vector<folly::Promise<std::map<pid_t, ProcessName>>> getQueue;
+  std::vector<std::pair<pid_t, folly::Promise<ProcessInfo>>> lookupQueue;
+  std::vector<folly::Promise<std::map<pid_t, ProcessInfo>>> getAllQueue;
 
-  // Allows periodic flushing of the expired names without quadratic-time
-  // insertion. waterLevel grows twice as fast as names.size() can, and when
-  // it exceeds names.size(), the name set is pruned.
+  // Allows periodic flushing of the expired infos without quadratic-time
+  // insertion. waterLevel grows twice as fast as infos.size() can, and when
+  // it exceeds infos.size(), the info set is pruned.
   size_t waterLevel = 0;
 
   for (;;) {
     lookupQueue.clear();
-    getQueue.clear();
+    getAllQueue.clear();
 
     sem_.wait();
 
@@ -280,24 +293,24 @@ void ProcessInfoCache::workerThread() {
       if (state->workerThreadShouldStop) {
         // Shutdown is only initiated by the destructor and since gets
         // are blocking, this implies no gets can be pending.
-        XCHECK(state->getQueue.empty())
+        XCHECK(state->getAllQueue.empty())
             << "ProcessInfoCache destroyed while gets were pending!";
         return;
       }
 
       lookupQueue.swap(state->lookupQueue);
-      getQueue.swap(state->getQueue);
+      getAllQueue.swap(state->getAllQueue);
 
-      // While the lock is held, store the number of remembered names for use
+      // While the lock is held, store the number of remembered infos for use
       // later.
-      currentNamesSize = state->names.size();
+      currentNamesSize = state->infos.size();
     }
 
     // sem_.wait() consumed one count, but we know addQueue.size() +
-    // getQueue.size() + (maybe done) were added. Since we will process all
+    // getAllQueue.size() + (maybe done) were added. Since we will process all
     // entries at once, rather than waking repeatedly, consume the rest.
-    if (lookupQueue.size() + getQueue.size()) {
-      (void)sem_.tryWait(lookupQueue.size() + getQueue.size() - 1);
+    if (lookupQueue.size() + getAllQueue.size()) {
+      (void)sem_.tryWait(lookupQueue.size() + getAllQueue.size() - 1);
     }
 
     // Process all additions before any gets so none are missed. It does mean
@@ -310,53 +323,68 @@ void ProcessInfoCache::workerThread() {
     // As described in ProcessInfoCache::add() above, it is critical this work
     // be done outside of the state lock.
     for (auto& [pid, p] : lookupQueue) {
-      p.setWith([this, pid = pid] { return readName_(pid); });
+      p.setWith([this, pid = pid] { return readInfo_(pid); });
     }
 
     auto now = clock_.now();
 
     // Bump the water level by two so that it's guaranteed to catch up.
-    // Imagine names.size() == 200 with waterLevel = 0, and add() is
+    // Imagine infos.size() == 200 with waterLevel = 0, and add() is
     // called sequentially with new pids. We wouldn't ever catch up and
     // clear expired ones. Thus, waterLevel should grow faster than
-    // names.size().
+    // infos.size().
     waterLevel += 2 * lookupQueue.size();
     if (waterLevel > currentNamesSize) {
       clearExpired(now, *state_.wlock());
       waterLevel = 0;
     }
 
-    if (!getQueue.empty()) {
-      // TODO: There are a few possible optimizations here, but get() is so
-      // rare that they're not worth worrying about.
-      std::map<pid_t, ProcessName> allProcessNames;
+    if (!getAllQueue.empty()) {
+      // TODO: There are a few possible optimizations here, but
+      // getAllProcessInfos() is so rare that they're not worth worrying about.
+      std::map<pid_t, ProcessInfo> allProcessInfos;
 
       {
         auto state = state_.wlock();
         clearExpired(now, *state);
-        for (const auto& [pid, name] : state->names) {
-          auto& fut = name->name_;
+        for (const auto& [pid, info] : state->infos) {
+          auto& fut = info->info_;
           if (fut.isReady() && fut.hasValue()) {
-            allProcessNames[pid] = fut.value();
+            allProcessInfos[pid] = fut.value();
           }
         }
       }
 
-      for (auto& promise : getQueue) {
-        promise.setValue(allProcessNames);
+      for (auto& promise : getAllQueue) {
+        promise.setValue(allProcessInfos);
       }
     }
   }
 }
 
-std::optional<std::string> ProcessInfoCache::getProcessName(pid_t pid) {
+std::optional<ProcessInfo> ProcessInfoCache::getProcessInfo(pid_t pid) {
   auto state = state_.rlock();
-  if (auto* nodep = folly::get_ptr(state->names, pid)) {
-    if ((*nodep)->name_.isReady()) {
-      return (*nodep)->name_.value();
+  if (auto* nodep = folly::get_ptr(state->infos, pid)) {
+    if ((*nodep)->info_.isReady()) {
+      return (*nodep)->info_.value();
     }
   }
   return std::nullopt;
+}
+
+std::optional<ProcessName> ProcessInfoCache::getProcessName(pid_t pid) {
+  auto info = getProcessInfo(pid);
+  if (info.has_value()) {
+    return info.value().name;
+  }
+  return std::nullopt;
+}
+
+/* static*/ ProcessInfo ProcessInfoCache::readProcessInfo(pid_t pid) {
+  return ProcessInfo{
+      getParentProcessId(pid).value_or(0),
+      readProcessName(pid),
+      readProcessSimpleName(pid)};
 }
 
 } // namespace facebook::eden

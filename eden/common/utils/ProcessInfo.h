@@ -34,6 +34,15 @@ using ProcessName = std::string;
 using ProcessSimpleName = std::string;
 
 /**
+ * Information collected about a process. Used for diagnostic tools and logging.
+ */
+struct ProcessInfo {
+  pid_t ppid;
+  ProcessName name;
+  ProcessSimpleName simpleName;
+};
+
+/**
  * Looks up a process name corresponding to the specified process ID.
  *
  * May throw an exception. May also return a synthesized process name including
