@@ -11,8 +11,18 @@ add_library(edencommon_os
   ${os_sources}
 )
 
-target_link_libraries(edencommon_os
+set(os_libs
   fmt::fmt
+)
+
+if (NOT WIN32)
+  list(APPEND os_libs
+    Folly::folly
+  )
+endif()
+
+target_link_libraries(edencommon_os
+  ${os_libs}
 )
 
 target_include_directories(edencommon_os PUBLIC
