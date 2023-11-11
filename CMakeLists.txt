@@ -41,11 +41,11 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake"
   "${CMAKE_CURRENT_SOURCE_DIR}/build/fbcode_builder/CMake"
   ${CMAKE_MODULE_PATH})
 
-find_package(Gflags REQUIRED)
-include_directories(${GFLAGS_INCLUDE_DIR})
-
 find_package(Glog MODULE REQUIRED)
 include_directories(${GLOG_INCLUDE_DIR})
+
+find_package(Gflags REQUIRED)
+include_directories(${GFLAGS_INCLUDE_DIR})
 
 find_package(folly CONFIG REQUIRED)
 include_directories(${FOLLY_INCLUDE_DIR})
