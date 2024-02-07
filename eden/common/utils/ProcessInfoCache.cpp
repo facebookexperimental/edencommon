@@ -323,7 +323,7 @@ void ProcessInfoCache::workerThread() {
     // As described in ProcessInfoCache::add() above, it is critical this work
     // be done outside of the state lock.
     for (auto& [pid, p] : lookupQueue) {
-      p.setWith([this, pid = pid] { return readInfo_(pid); });
+      p.setWith([this, pid_2 = pid] { return readInfo_(pid_2); });
     }
 
     auto now = clock_.now();
