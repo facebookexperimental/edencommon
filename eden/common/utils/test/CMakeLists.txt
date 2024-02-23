@@ -48,3 +48,18 @@ target_link_libraries(
 )
 
 gtest_discover_tests(option_set_test)
+
+add_executable(
+  throw_test
+    "ThrowTest.cpp"
+)
+
+target_link_libraries(
+  throw_test
+  PUBLIC
+    edencommon_utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(throw_test)
