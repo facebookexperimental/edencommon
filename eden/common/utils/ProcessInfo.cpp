@@ -340,7 +340,7 @@ ProcessName readProcessName(pid_t pid) {
 #endif
 }
 
-ProcessSimpleName readProcessSimpleName(FOLLY_MAYBE_UNUSED pid_t pid) {
+ProcessSimpleName readProcessSimpleName([[maybe_unused]] pid_t pid) {
 #ifdef __APPLE__
   // Max length of process name returned from proc_name
   // https://opensource.apple.com/source/xnu/xnu-1228.0.2/bsd/sys/proc_info.h.auto.html
@@ -364,7 +364,7 @@ ProcessSimpleName readProcessSimpleName(FOLLY_MAYBE_UNUSED pid_t pid) {
   return ProcessSimpleName("<unknown>");
 }
 
-std::optional<pid_t> getParentProcessId(FOLLY_MAYBE_UNUSED pid_t pid) {
+std::optional<pid_t> getParentProcessId([[maybe_unused]] pid_t pid) {
   std::optional<pid_t> ppid;
 #ifdef __APPLE__
   // Future improvements might include caching of parent pid lookups. However,
