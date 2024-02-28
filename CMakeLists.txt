@@ -56,6 +56,7 @@ include(GoogleTest)
 enable_testing()
 
 add_subdirectory(eden/common/os)
+add_subdirectory(eden/common/telemetry)
 add_subdirectory(eden/common/utils)
 
 # Install our own CMake package files for dependent projects.
