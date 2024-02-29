@@ -63,3 +63,18 @@ target_link_libraries(
 )
 
 gtest_discover_tests(throw_test)
+
+add_executable(
+  immediate_future_test
+    "ImmediateFutureTest.cpp"
+)
+
+target_link_libraries(
+  immediate_future_test
+  PUBLIC
+    edencommon_utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(immediate_future_test)
