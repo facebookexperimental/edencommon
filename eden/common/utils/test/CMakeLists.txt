@@ -93,3 +93,18 @@ target_link_libraries(
 )
 
 gtest_discover_tests(memory_test)
+
+add_executable(
+  string_test
+    "StringTest.cpp"
+)
+
+target_link_libraries(
+  string_test
+  PUBLIC
+    edencommon_utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(string_test)
