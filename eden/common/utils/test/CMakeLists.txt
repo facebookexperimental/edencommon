@@ -108,3 +108,18 @@ target_link_libraries(
 )
 
 gtest_discover_tests(string_test)
+
+add_executable(
+  utf8_test
+    "Utf8Test.cpp"
+)
+
+target_link_libraries(
+  utf8_test
+  PUBLIC
+    edencommon_utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(utf8_test)
