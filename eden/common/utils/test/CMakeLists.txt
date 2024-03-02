@@ -123,3 +123,35 @@ target_link_libraries(
 )
 
 gtest_discover_tests(utf8_test)
+
+add_executable(
+  file_utils_test
+    "FileUtilsTest.cpp"
+)
+
+target_link_libraries(
+  file_utils_test
+  PUBLIC
+    edencommon_testharness
+    edencommon_utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(file_utils_test)
+
+add_executable(
+  path_funcs_test
+    "PathFuncsTest.cpp"
+)
+
+target_link_libraries(
+  path_funcs_test
+  PUBLIC
+    edencommon_testharness
+    edencommon_utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(path_funcs_test)
