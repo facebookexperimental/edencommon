@@ -202,3 +202,19 @@ target_link_libraries(
 )
 
 gtest_discover_tests(io_future_test)
+
+add_executable(
+  spawned_process_test
+    "SpawnedProcessTest.cpp"
+)
+
+target_link_libraries(
+  spawned_process_test
+  PUBLIC
+    edencommon_testharness
+    edencommon_utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(spawned_process_test)
