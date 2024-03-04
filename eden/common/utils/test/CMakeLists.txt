@@ -155,3 +155,50 @@ target_link_libraries(
 )
 
 gtest_discover_tests(path_funcs_test)
+
+add_executable(
+  file_descriptor_test
+    "FileDescriptorTest.cpp"
+)
+
+target_link_libraries(
+  file_descriptor_test
+  PUBLIC
+    edencommon_testharness
+    edencommon_utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(file_descriptor_test)
+
+add_executable(
+  io_future_test
+    "IoFutureTest.cpp"
+)
+
+target_link_libraries(
+  io_future_test
+  PUBLIC
+    edencommon_utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(io_future_test)
+
+add_executable(
+  unix_socket_test
+    "UnixSocketTest.cpp"
+)
+
+target_link_libraries(
+  unix_socket_test
+  PUBLIC
+    edencommon_testharness
+    edencommon_utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(io_future_test)
