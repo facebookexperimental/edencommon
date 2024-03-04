@@ -13,6 +13,17 @@
 file(GLOB utils_headers CONFIGURE_DEPENDS *.h)
 file(GLOB utils_sources CONFIGURE_DEPENDS *.cpp)
 
+if (WIN32)
+  list(
+    REMOVE_ITEM utils_headers
+    ${CMAKE_CURRENT_SOURCE_DIR}/XAttr.h
+  )
+  list(
+    REMOVE_ITEM utils_sources
+    ${CMAKE_CURRENT_SOURCE_DIR}/XAttr.cpp
+  )
+endif()
+
 add_library(edencommon_utils ${utils_headers} ${utils_sources})
 
 target_link_libraries(edencommon_utils
