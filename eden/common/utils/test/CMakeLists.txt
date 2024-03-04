@@ -218,3 +218,19 @@ target_link_libraries(
 )
 
 gtest_discover_tests(spawned_process_test)
+
+add_executable(
+  ref_ptr_test
+    "RefPtrTest.cpp"
+)
+
+target_link_libraries(
+  ref_ptr_test
+  PUBLIC
+    edencommon_testharness
+    edencommon_utils
+    Folly::folly_test_util
+    ${LIBGMOCK_LIBRARIES}
+)
+
+gtest_discover_tests(ref_ptr_test)
