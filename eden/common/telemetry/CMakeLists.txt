@@ -18,7 +18,6 @@ target_link_libraries(
     Folly::folly
 )
 
-
 target_include_directories(
   edencommon_telemetry
   PUBLIC
