@@ -31,13 +31,13 @@ struct ExpensiveMove {
   static volatile uint64_t count;
 
   FOLLY_NOINLINE ExpensiveMove() {
-    ++count;
+    count = count + 1;
   }
   FOLLY_NOINLINE ~ExpensiveMove() {
-    ++count;
+    count = count + 1;
   }
   FOLLY_NOINLINE ExpensiveMove(ExpensiveMove&&) noexcept {
-    ++count;
+    count = count + 1;
   }
 
   ExpensiveMove& operator=(ExpensiveMove&&) noexcept = default;
