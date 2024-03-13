@@ -15,6 +15,8 @@ target_link_libraries(
   edencommon_telemetry
   PUBLIC
     edencommon_utils
+    FBThrift::thriftcpp2
+    fb303::fb303
     Folly::folly
 )
 
