@@ -137,7 +137,7 @@ class Tracer {
   friend class ThreadLocalTracePoints;
   struct Tag {};
 
-  folly::cacheline_aligned<std::atomic<bool>> enabled_{folly::in_place, false};
+  folly::cacheline_aligned<std::atomic<bool>> enabled_{std::in_place, false};
   folly::ThreadLocal<ThreadLocalTracePoints, Tag, folly::AccessModeStrict>
       tltp_;
   // This is written to only when a thread dies and when
