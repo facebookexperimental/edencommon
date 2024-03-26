@@ -215,7 +215,7 @@ folly::Expected<RelativePath, int> joinAndNormalize(
   }
   const std::string joined = base.value().empty() ? std::string{path}
       : path.empty()                              ? std::string{base.value()}
-                     : fmt::format("{}{}{}", base, kDirSeparator, path);
+                     : fmt::format("{}{}{}", base, kDirSeparatorStr, path);
   const CanonicalData cdata{canonicalPathData(joined)};
   const auto& parts{cdata.components};
   XDCHECK(!cdata.isAbsolute);

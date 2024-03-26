@@ -1510,7 +1510,7 @@ struct AbsolutePathSanityCheck {
     if (!val.starts_with(detail::kRootStr)) {
       throw_<std::domain_error>(
           "attempt to construct an AbsolutePath from a non-absolute string: \"",
-          val,
+          std::string_view(val),
           "\"");
     }
     size_t offset = detail::kRootStr.size();
@@ -1518,7 +1518,7 @@ struct AbsolutePathSanityCheck {
     if (val.size() > 1 && val.ends_with(kDirSeparator)) {
       // We do allow "/" though
       throw_<std::domain_error>(
-          "AbsolutePath must not end with a slash: ", val);
+          "AbsolutePath must not end with a slash: ", std::string_view(val));
     }
 
     if (val.size() > offset) {
