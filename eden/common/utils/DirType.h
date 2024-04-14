@@ -56,7 +56,7 @@ static_assert(S_IFMT == 0xF000, "The S_IFMT on Windows should be 0xF000");
 #define _S_IFBLK 0x3000
 #define DT_BLK (_S_IFBLK >> POSIX_BIT_SHIFT)
 
-#define IFTODT(mode) (((mode)&_S_IFMT) >> POSIX_BIT_SHIFT)
+#define IFTODT(mode) (((mode) & _S_IFMT) >> POSIX_BIT_SHIFT)
 #define DTTOIF(type) (((type) << POSIX_BIT_SHIFT) & _S_IFMT)
 
 #ifndef S_ISDIR

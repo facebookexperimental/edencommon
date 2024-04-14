@@ -639,9 +639,9 @@ class PathBase :
    * Thrift.
    */
   auto asString() const -> std::conditional_t<
-      std::is_same_v<Storage, std::string>,
-      const std::string&,
-      std::string> {
+                            std::is_same_v<Storage, std::string>,
+                            const std::string&,
+                            std::string> {
     if constexpr (std::is_same_v<Storage, std::string>) {
       return path_;
     } else {
