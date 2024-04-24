@@ -41,7 +41,10 @@ struct TestLogEvent {
 struct ScubaStructuredLoggerTest : public ::testing::Test {
   std::shared_ptr<TestScribeLogger> scribe{
       std::make_shared<TestScribeLogger>()};
-  ScubaStructuredLogger logger{scribe, SessionInfo{}};
+  ScubaStructuredLogger logger{
+      scribe,
+      SessionInfo{},
+  };
 };
 
 } // namespace
@@ -81,26 +84,10 @@ TEST_F(ScubaStructuredLoggerTest, json_contains_types_at_top_level_and_values) {
   EXPECT_THAT(
       keysOf(normals),
       UnorderedElementsAre(
-          "str",
-          "user",
-          "host",
-          "type",
-          "os",
-          "osver",
-          "edenver",
-          "system_architecture",
-          "logged_by"));
+          "str", "user", "host", "type", "os", "osver", "system_architecture"));
 #else
   EXPECT_THAT(
       keysOf(normals),
-      UnorderedElementsAre(
-          "str",
-          "user",
-          "host",
-          "type",
-          "os",
-          "osver",
-          "edenver",
-          "logged_by"));
+      UnorderedElementsAre("str", "user", "host", "type", "os", "osver"));
 #endif
 }

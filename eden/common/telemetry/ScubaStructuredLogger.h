@@ -13,18 +13,19 @@
 
 namespace facebook::eden {
 
-class EdenConfig;
 class ScribeLogger;
 
-class ScubaStructuredLogger final : public StructuredLogger {
+class ScubaStructuredLogger : public StructuredLogger {
  public:
   ScubaStructuredLogger(
       std::shared_ptr<ScribeLogger> scribeLogger,
       SessionInfo sessionInfo);
+  virtual ~ScubaStructuredLogger() override = default;
 
- private:
+ protected:
   void logDynamicEvent(DynamicEvent event) override;
 
+ private:
   std::shared_ptr<ScribeLogger> scribeLogger_;
 };
 

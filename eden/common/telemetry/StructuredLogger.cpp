@@ -34,16 +34,11 @@ DynamicEvent StructuredLogger::populateDefaultFields(const char* type) {
   event.addString("type", type);
   event.addString("user", sessionInfo_.username);
   event.addString("host", sessionInfo_.hostname);
-  if (sessionInfo_.ciInstanceId.has_value()) {
-    event.addInt("sandcastle_instance_id", *sessionInfo_.ciInstanceId);
-  }
   event.addString("os", sessionInfo_.os);
   event.addString("osver", sessionInfo_.osVersion);
-  event.addString("edenver", sessionInfo_.appVersion);
 #if defined(__APPLE__)
   event.addString("system_architecture", sessionInfo_.systemArchitecture);
 #endif
-  event.addString("logged_by", "edenfs");
   return event;
 }
 

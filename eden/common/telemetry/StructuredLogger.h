@@ -38,10 +38,10 @@ class StructuredLogger {
     logDynamicEvent(std::move(de));
   }
 
- private:
+ protected:
   virtual void logDynamicEvent(DynamicEvent event) = 0;
 
-  DynamicEvent populateDefaultFields(const char* type);
+  virtual DynamicEvent populateDefaultFields(const char* type);
 
   bool enabled_;
   uint32_t sessionId_;

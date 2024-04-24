@@ -26,7 +26,7 @@ struct SessionInfo;
  * Returns a StructuredLogger appropriate for this platform and
  * configuration.
  */
-template <typename StatsPtr>
+template <typename StructuredLoggerType, typename StatsPtr>
 std::shared_ptr<StructuredLogger> makeDefaultStructuredLogger(
     const std::string& binary,
     const std::string& category,
@@ -47,7 +47,7 @@ std::shared_ptr<StructuredLogger> makeDefaultStructuredLogger(
   try {
     auto logger =
         std::make_unique<SubprocessScribeLogger>(binary.c_str(), category);
-    return std::make_shared<ScubaStructuredLogger>(
+    return std::make_shared<StructuredLoggerType>(
         std::move(logger), std::move(sessionInfo));
   } catch (const std::exception& ex) {
     stats->increment(&TelemetryStats::subprocessLoggerFailure, 1);
