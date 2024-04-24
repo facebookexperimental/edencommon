@@ -45,6 +45,23 @@ constexpr size_t kHostNameMax = 256;
 
 namespace facebook::eden {
 
+SessionInfo makeSessionInfo(
+    const UserInfo& userInfo,
+    std::string hostname,
+    std::string appVersion) {
+  SessionInfo env;
+  env.username = userInfo.getUsername();
+  env.hostname = std::move(hostname);
+  env.ciInstanceId = getCiInstanceId();
+  env.os = getOperatingSystemName();
+  env.osVersion = getOperatingSystemVersion();
+  env.appVersion = std::move(appVersion);
+#if defined(__APPLE__)
+  env.systemArchitecture = getOperatingSystemArchitecture();
+#endif
+  return env;
+}
+
 std::string getOperatingSystemName() {
 #if defined(_WIN32)
   return "Windows";

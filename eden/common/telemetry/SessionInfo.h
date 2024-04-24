@@ -11,6 +11,8 @@
 #include <optional>
 #include <string>
 
+#include "eden/common/utils/UserInfo.h"
+
 namespace facebook::eden {
 
 struct SessionInfo {
@@ -24,6 +26,11 @@ struct SessionInfo {
   std::string systemArchitecture;
 #endif
 };
+
+SessionInfo makeSessionInfo(
+    const UserInfo& userInfo,
+    std::string hostname,
+    std::string edenVersion);
 
 std::string getOperatingSystemName();
 std::string getOperatingSystemVersion();
