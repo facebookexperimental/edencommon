@@ -24,16 +24,34 @@ if (WIN32)
   )
 endif()
 
-add_library(edencommon_utils ${utils_headers} ${utils_sources})
+add_library(
+  edencommon_utils
+  STATIC
+    ${utils_headers}
+    ${utils_sources})
 
-target_link_libraries(edencommon_utils
+target_link_libraries(
+  edencommon_utils
+  PUBLIC
     Folly::folly
     glog::glog
 )
 
-target_include_directories(edencommon_utils PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
-  $<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>
+if (WIN32)
+  target_link_libraries(
+    edencommon_utils
+    PUBLIC
+      Userenv.lib
+      Rpcrt4.lib
+      dbghelp.lib
+  )
+endif()
+
+target_include_directories(
+  edencommon_utils
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>
 )
 
 install(

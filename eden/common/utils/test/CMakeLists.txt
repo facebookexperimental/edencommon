@@ -14,11 +14,13 @@ add_executable(
     PathFuncsTest.cpp
     ProcessInfoCacheTest.cpp
     RefPtrTest.cpp
+    ScopedEnvVar.cpp
     SpawnedProcessTest.cpp
     StringConvTest.cpp
     StringTest.cpp
     ThrowTest.cpp
     UnixSocketTest.cpp
+    UserInfoTest.cpp
     Utf8Test.cpp
 )
 
@@ -27,6 +29,7 @@ target_link_libraries(
   PUBLIC
     edencommon_utils
     edencommon_testharness
+    Folly::folly
     Folly::folly_test_util
     ${LIBGMOCK_LIBRARIES}
 )
