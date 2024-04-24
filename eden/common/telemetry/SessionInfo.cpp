@@ -95,7 +95,7 @@ std::string getHostname() {
   return hostname;
 }
 
-std::optional<uint64_t> getSandcastleInstanceId() {
+std::optional<uint64_t> getCiInstanceId() {
   auto str = std::getenv("SANDCASTLE_INSTANCE_ID");
   if (!str) {
     return std::nullopt;

@@ -16,12 +16,10 @@ namespace facebook::eden {
 struct SessionInfo {
   std::string username;
   std::string hostname;
-  // TODO(nga): sandcastle is Facebook-specific, should not be used in
-  // opensource version.
-  std::optional<uint64_t> sandcastleInstanceId;
+  std::optional<uint64_t> ciInstanceId;
   std::string os;
   std::string osVersion;
-  std::string edenVersion;
+  std::string appVersion;
 #ifdef __APPLE__
   std::string systemArchitecture;
 #endif
@@ -40,11 +38,9 @@ std::string getOperatingSystemArchitecture();
 std::string getHostname();
 
 /**
- * Return the best guess of sandcastle instance id from the environment,
- * or return empty if sandcastle instance id is unknown.
+ * Return the best guess of CI instance id from the environment,
+ * or return empty if CI instance id is unknown.
  */
-// TODO(nga): sandcastle is Facebook-specific, should not be used in
-// opensource version.
-std::optional<uint64_t> getSandcastleInstanceId();
+std::optional<uint64_t> getCiInstanceId();
 
 } // namespace facebook::eden
