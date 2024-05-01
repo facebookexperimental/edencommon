@@ -50,6 +50,8 @@ class UnboundedQueueExecutor : public folly::Executor {
     executor_->add(std::move(func));
   }
 
+  size_t getTaskQueueSize() const;
+
  private:
   std::shared_ptr<folly::Executor> executor_;
 };
