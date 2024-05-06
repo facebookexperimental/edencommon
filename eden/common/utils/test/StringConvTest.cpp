@@ -18,7 +18,8 @@ TEST(StringConvTest, multibyteToWideString) {
   EXPECT_EQ(L"foobar", multibyteToWideString("foobar"));
   EXPECT_EQ(
       L"\u0138\u00F9\u0150\U00029136",
-      multibyteToWideString(u8"\u0138\u00F9\u0150\U00029136"));
+      multibyteToWideString(
+          reinterpret_cast<const char*>(u8"\u0138\u00F9\u0150\U00029136")));
 }
 
 TEST(StringConvTest, wideToMultibyteString) {
@@ -26,7 +27,7 @@ TEST(StringConvTest, wideToMultibyteString) {
   EXPECT_EQ(wideToMultibyteString<std::string>(L"foobar"), "foobar");
   EXPECT_EQ(
       wideToMultibyteString<std::string>(L"\u0138\u00F9\u0150\U00029136"),
-      u8"\u0138\u00F9\u0150\U00029136");
+      reinterpret_cast<const char*>(u8"\u0138\u00F9\u0150\U00029136"));
 }
 
 #endif
