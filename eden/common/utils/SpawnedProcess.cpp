@@ -678,6 +678,15 @@ SpawnedProcess::SpawnedProcess(
     throw err;
   }
 
+  // Some times this code inexplicably fails with "The parameter is incorrect"
+  // error. To understand what successful CreateProcess() calls look like, we
+  // will temporarily add logging.
+  // TODO(cuev): Remove this logging once we get some data.
+  XLOGF(
+      DBG2,
+      "CreateProcess({}) succeeded",
+      wideToMultibyteString<std::string>(cmdLine));
+
   CloseHandle(procInfo.hThread);
   proc_.reset(procInfo.hProcess);
 #endif
