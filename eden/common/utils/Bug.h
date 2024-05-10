@@ -66,8 +66,8 @@ namespace facebook::eden {
  */
 class EdenBug {
  public:
-  FOLLY_COLD EdenBug(const char* file, int lineNumber);
-  FOLLY_COLD EdenBug(EdenBug&& other) noexcept;
+  [[FOLLY_ATTR_GNU_COLD]] EdenBug(const char* file, int lineNumber);
+  [[FOLLY_ATTR_GNU_COLD]] EdenBug(EdenBug&& other) noexcept;
   EdenBug& operator=(EdenBug&& other) = delete;
   ~EdenBug();
 
