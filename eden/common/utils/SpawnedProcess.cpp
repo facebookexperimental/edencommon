@@ -593,14 +593,44 @@ SpawnedProcess::SpawnedProcess(
 
   if (!startupInfo.StartupInfo.hStdInput) {
     startupInfo.StartupInfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+    if (startupInfo.StartupInfo.hStdError == INVALID_HANDLE_VALUE) {
+      auto err = makeWin32ErrorExplicit(
+          GetLastError(), "GetStdHandle(STD_INPUT_HANDLE) failed");
+      XLOGF(
+          ERR,
+          "Issue during SpawnedProcess Creation: {}",
+          folly::exceptionStr(err));
+    }
+    // Continue anyway; TODO(cuev): Determine if throwing immediately is the
+    // better option
     handles.push_back(startupInfo.StartupInfo.hStdInput);
   }
   if (!startupInfo.StartupInfo.hStdOutput) {
     startupInfo.StartupInfo.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (startupInfo.StartupInfo.hStdError == INVALID_HANDLE_VALUE) {
+      auto err = makeWin32ErrorExplicit(
+          GetLastError(), "GetStdHandle(STD_OUTPUT_HANDLE) failed");
+      XLOGF(
+          ERR,
+          "Issue during SpawnedProcess Creation: {}",
+          folly::exceptionStr(err));
+    }
+    // Continue anyway; TODO(cuev): Determine if throwing immediately is the
+    // better option
     handles.push_back(startupInfo.StartupInfo.hStdOutput);
   }
   if (!startupInfo.StartupInfo.hStdError) {
     startupInfo.StartupInfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+    if (startupInfo.StartupInfo.hStdError == INVALID_HANDLE_VALUE) {
+      auto err = makeWin32ErrorExplicit(
+          GetLastError(), "GetStdHandle(STD_ERROR_HANDLE) failed");
+      XLOGF(
+          ERR,
+          "Issue during SpawnedProcess Creation: {}",
+          folly::exceptionStr(err));
+    }
+    // Continue anyway; TODO(cuev): Determine if throwing immediately is the
+    // better option
     handles.push_back(startupInfo.StartupInfo.hStdError);
   }
 
@@ -672,8 +702,14 @@ SpawnedProcess::SpawnedProcess(
     auto err = makeWin32ErrorExplicit(
         errorCode,
         fmt::format(
-            "CreateProcess({}) failed",
-            wideToMultibyteString<std::string>(cmdLine)));
+            "CreateProcess({}) failed with cwd: {}, creation flags: {}, execPath: {}, env: {}",
+            wideToMultibyteString<std::string>(cmdLine),
+            options.cwd_.has_value() ? options.cwd_->viewWithoutUNC()
+                                     : "(no cwd provided)",
+            options.flags_.value_or(0),
+            options.execPath_.has_value() ? options.execPath_->view()
+                                          : "(no execPath provided)",
+            env));
     XLOG(ERR) << folly::exceptionStr(err);
     throw err;
   }
@@ -684,8 +720,14 @@ SpawnedProcess::SpawnedProcess(
   // TODO(cuev): Remove this logging once we get some data.
   XLOGF(
       DBG2,
-      "CreateProcess({}) succeeded",
-      wideToMultibyteString<std::string>(cmdLine));
+      "CreateProcess({}) succeeded with cwd: {}, creation flags: {}, execPath: {}, env: {}",
+      wideToMultibyteString<std::string>(cmdLine),
+      options.cwd_.has_value() ? options.cwd_->viewWithoutUNC()
+                               : "(no cwd provided)",
+      options.flags_.value_or(0),
+      options.execPath_.has_value() ? options.execPath_->view()
+                                    : "(no execPath provided)",
+      env);
 
   CloseHandle(procInfo.hThread);
   proc_.reset(procInfo.hProcess);
