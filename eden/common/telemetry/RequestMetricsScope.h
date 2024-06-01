@@ -61,17 +61,17 @@ class RequestMetricsScope {
   static folly::StringPiece stringOfRequestMetric(RequestMetric metric);
 
   /**
-   * stages of requests that are tracked, these represent where an request is in
-   * the process (for example an request could be queued or live)
+   * stages of requests that are tracked, these represent where any request is
+   * in the process (for example any request could be queued or live)
    */
   enum RequestStage {
     // represents any request that has been requested but not yet completed
     // (request in this stage could be in the queue, live, or in the case of
-    // hg store imports fetching from cache
+    // sapling store imports fetching from cache
     PENDING,
     // represents request that are currently being executed (in the case of
-    // hg imports, only those fetching data, this does not include those reading
-    // from cache)
+    // sapling imports, only those fetching data, this does not include those
+    // reading from cache)
     LIVE,
   };
 
