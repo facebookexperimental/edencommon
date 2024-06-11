@@ -385,7 +385,7 @@ ImmediateFuture<std::vector<T>> collectAllSafe(
               }
               res.push_back(std::move(try_).value());
             }
-            return folly::Try{res};
+            return folly::Try{std::move(res)};
           });
 }
 
