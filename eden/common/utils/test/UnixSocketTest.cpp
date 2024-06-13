@@ -283,7 +283,7 @@ TEST(FutureUnixSocket, attachEventBase) {
     evb->loopForever();
 
     EXPECT_TRUE(receivedMessage.has_value());
-    EXPECT_EQ(msgData, receivedMessage->data.moveToFbString().toStdString());
+    EXPECT_EQ(msgData, receivedMessage->data.to<std::string>());
   };
 
   // Create two sockets that are initially not attached to an EventBase
