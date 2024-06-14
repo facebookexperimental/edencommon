@@ -8,7 +8,6 @@ file(GLOB testharness_sources CONFIGURE_DEPENDS *.cpp)
 
 add_library(
   edencommon_testharness
-  STATIC
   ${testharness_headers}
   ${testharness_sources}
 )
