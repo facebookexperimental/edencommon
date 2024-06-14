@@ -9,6 +9,7 @@
 
 #include <folly/Overload.h>
 #include <folly/logging/xlog.h>
+#include <string_view>
 
 using folly::SemiFuture;
 using folly::Unit;
@@ -347,6 +348,21 @@ size_t FaultInjector::unblockAllImpl(
     numUnblocked += classEntry.second.size();
   }
   return numUnblocked;
+}
+
+std::vector<std::string> FaultInjector::getBlockedFaults(
+    std::string_view keyClass) {
+  auto state = state_.rlock();
+  std::vector<std::string> results;
+  auto classIter = state->blockedChecks.find(keyClass);
+  if (classIter == state->blockedChecks.end()) {
+    return results;
+  }
+
+  for (auto& blockedCheck : classIter->second) {
+    results.emplace_back(blockedCheck.keyValue);
+  }
+  return results;
 }
 
 } // namespace facebook::eden

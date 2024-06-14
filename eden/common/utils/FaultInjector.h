@@ -232,6 +232,8 @@ class FaultInjector {
   size_t unblockAll();
   size_t unblockAllWithError(folly::exception_wrapper error);
 
+  std::vector<std::string> getBlockedFaults(std::string_view keyClass);
+
  private:
   struct Block {};
   struct Delay {

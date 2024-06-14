@@ -79,7 +79,7 @@ TEST(FaultInjector, blocking) {
   future1 = fi.checkAsync("mount", "/x/y/z");
   EXPECT_FALSE(future1.isReady());
   future2 = fi.checkAsync("mount", "/a/b/c");
-  EXPECT_FALSE(future1.isReady());
+  EXPECT_FALSE(future2.isReady());
 
   // Unblock just one call with an error
   countUnblocked =
@@ -165,4 +165,41 @@ TEST(FaultInjector, joinedKey) {
   fi.check("my_fault", "foo", "baz");
   fi.checkAsync("my_fault", "foo", "baz").get();
   fi.check("my_fault", "bar", "foo");
+}
+
+TEST(FaultInjector, getBlockedFaults) {
+  FaultInjector fi(true);
+  fi.injectBlock("mount", ".*");
+
+  auto future1 = fi.checkAsync("mount", "/x/y/z");
+  EXPECT_FALSE(future1.isReady());
+
+  auto inspectRes = fi.getBlockedFaults("mount");
+  EXPECT_EQ(1, inspectRes.size());
+
+  fi.unblock("mount", ".*");
+  ASSERT_NE(future1.isReady(), detail::kImmediateFutureAlwaysDefer);
+
+  inspectRes = fi.getBlockedFaults("mount");
+  EXPECT_EQ(0, inspectRes.size());
+}
+
+TEST(FaultInjector, disabledFaultInjector) {
+  FaultInjector fi(false);
+
+  EXPECT_THROW_RE(fi.injectBlock("mount", ".*");
+                  , std::runtime_error, "fault injection is disabled");
+
+  auto inspectRes = fi.getBlockedFaults("mount");
+  EXPECT_EQ(0, inspectRes.size());
+}
+
+TEST(FaultInjector, getBlockedFaultsWhenErrorInjected) {
+  FaultInjector fi(true);
+  fi.injectError("mount", ".*", std::runtime_error("fail"));
+  auto future = fi.checkAsync("mount", "/x/y/z");
+
+  EXPECT_THROW_RE(std::move(future).get(), std::runtime_error, "fail");
+  auto inspectRes = fi.getBlockedFaults("mount");
+  EXPECT_EQ(0, inspectRes.size());
 }
