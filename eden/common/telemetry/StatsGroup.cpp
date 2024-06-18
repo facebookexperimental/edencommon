@@ -21,7 +21,7 @@ StatsGroupBase::Counter::Counter(std::string_view name)
           // added. Usually we care about counts and rates.
           {},
           fb303::SlidingWindowPeriodConsts::kOneMinTenMinHour,
-      } {
+      }, name_{name} {
   // TODO: enforce the name matches the StatsGroup prefix.
 }
 

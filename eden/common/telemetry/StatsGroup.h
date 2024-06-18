@@ -33,7 +33,14 @@ class StatsGroupBase {
    public:
     explicit Counter(std::string_view name);
 
+    std::string_view getName() const {
+      return name_;
+    }
+
     using Stat::addValue;
+
+   private:
+    std::string_view name_;
   };
 
   /**
