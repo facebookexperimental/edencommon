@@ -80,6 +80,7 @@ class StatsGroup : public StatsGroupBase {
    * up the calling thread's object.
    */
   using DurationPtr = Duration T::*;
+  using CounterPtr = Counter T::*;
 };
 
 } // namespace facebook::eden
