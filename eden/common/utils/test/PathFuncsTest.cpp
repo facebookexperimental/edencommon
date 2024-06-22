@@ -10,13 +10,13 @@
 #include <boost/functional/hash.hpp>
 #include <folly/Exception.h>
 #include <folly/FileUtil.h>
-#include <folly/experimental/TestUtil.h>
 #include <folly/portability/Fcntl.h>
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
 #include <folly/portability/SysStat.h>
 #include <folly/portability/Unistd.h>
 #include <folly/test/TestUtils.h>
+#include <folly/testing/TestUtil.h>
 #include <sstream>
 
 #include "eden/common/testharness/TempFile.h"

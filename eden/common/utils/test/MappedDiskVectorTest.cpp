@@ -9,9 +9,9 @@
 
 #include "eden/common/utils/MappedDiskVector.h"
 
-#include <folly/experimental/TestUtil.h>
 #include <folly/portability/GTest.h>
 #include <folly/test/TestUtils.h>
+#include <folly/testing/TestUtil.h>
 
 using facebook::eden::MappedDiskVector;
 using folly::test::TemporaryDirectory;

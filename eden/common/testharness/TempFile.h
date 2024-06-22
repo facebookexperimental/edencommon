@@ -20,7 +20,7 @@
  */
 
 #include <folly/Range.h>
-#include <folly/experimental/TestUtil.h>
+#include <folly/testing/TestUtil.h>
 
 namespace facebook::eden {
 

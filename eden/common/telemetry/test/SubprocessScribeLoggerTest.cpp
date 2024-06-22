@@ -9,8 +9,8 @@
 
 #include <folly/Exception.h>
 #include <folly/FileUtil.h>
-#include <folly/experimental/TestUtil.h>
 #include <folly/portability/GTest.h>
+#include <folly/testing/TestUtil.h>
 
 using namespace facebook::eden;
 using namespace folly::string_piece_literals;

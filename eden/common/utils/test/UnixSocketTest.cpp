@@ -15,13 +15,13 @@
 #include <folly/Random.h>
 #include <folly/Range.h>
 #include <folly/String.h>
-#include <folly/experimental/TestUtil.h>
 #include <folly/futures/Future.h>
 #include <folly/io/IOBuf.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/logging/xlog.h>
 #include <folly/portability/GTest.h>
 #include <folly/test/TestUtils.h>
+#include <folly/testing/TestUtil.h>
 #include <optional>
 #include <random>
 
