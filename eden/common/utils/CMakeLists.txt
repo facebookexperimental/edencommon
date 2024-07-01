@@ -26,7 +26,6 @@ endif()
 
 add_library(
   edencommon_utils
-  STATIC
     ${utils_headers}
     ${utils_sources})
 
