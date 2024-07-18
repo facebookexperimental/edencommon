@@ -352,12 +352,20 @@ ProcessSimpleName readProcessSimpleName([[maybe_unused]] pid_t pid) {
   auto ret = proc_name(pid, namePtr, len);
   if (ret > len) {
     // This should never happen.
-    XLOGF(INFO, "proc_name returned length greater than provided buffer.");
+    XLOGF(
+        INFO,
+        "proc_name for pid {} returned length greater than provided buffer.",
+        pid);
   } else if (ret != 0) {
     name.resize(ret);
     return ProcessSimpleName(std::string(name.begin(), name.end()));
   } else {
-    XLOGF(DBG2, "proc_name failed: {} ({})", folly::errnoStr(errno), errno);
+    XLOGF(
+        DBG2,
+        "proc_name failed for pid {}: {} ({})",
+        pid,
+        folly::errnoStr(errno),
+        errno);
   }
 #endif
 
