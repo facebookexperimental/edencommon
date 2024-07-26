@@ -16,11 +16,11 @@ namespace facebook::eden {
 StatsGroupBase::Counter::Counter(std::string_view name)
     : Stat{
           name,
-          fb303::ExportTypeConsts::kSumCountAvgRate,
+          fb303::ExportTypeConsts::kSumCountAvg,
           // Don't record quantiles for counters. Usually "1" is the only value
           // added. Usually we care about counts and rates.
           {},
-          fb303::SlidingWindowPeriodConsts::kOneMinTenMinHour,
+          fb303::SlidingWindowPeriodConsts::kOneMinTenMin,
       }, name_{name} {
   // TODO: enforce the name matches the StatsGroup prefix.
 }
@@ -28,9 +28,9 @@ StatsGroupBase::Counter::Counter(std::string_view name)
 StatsGroupBase::Duration::Duration(std::string_view name)
     : Stat{
           name,
-          fb303::ExportTypeConsts::kSumCountAvgRate,
-          fb303::QuantileConsts::kP1_P10_P50_P90_P99,
-          fb303::SlidingWindowPeriodConsts::kOneMinTenMinHour} {
+          fb303::ExportTypeConsts::kSumCountAvg,
+          fb303::QuantileConsts::kP50_P90_P95_P99,
+          fb303::SlidingWindowPeriodConsts::kOneMinTenMin} {
   // This should be a compile-time check but I don't know how to spell that in a
   // convenient way. :) Asserting at startup in debug mode should be sufficient.
   XCHECK_GT(name.size(), size_t{3}) << "duration name too short";
