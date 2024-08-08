@@ -234,6 +234,15 @@ class FaultInjector {
 
   std::vector<std::string> getBlockedFaults(std::string_view keyClass);
 
+  /**
+   * Blocks up to timeout milliseconds waiting for a client to be blocked on
+   * the specified fault (keyClass). Returns true if a client is blocked, and
+   * false if the timeout was exceeded before a client was blocked.
+   */
+  bool waitUntilBlocked(
+      std::string_view keyClass,
+      std::chrono::milliseconds timeout);
+
  private:
   struct Block {};
   struct Delay {

@@ -7,14 +7,18 @@
 
 #include "eden/common/utils/FaultInjector.h"
 
+#include <chrono>
+#include <string_view>
+
 #include <folly/Overload.h>
 #include <folly/logging/xlog.h>
-#include <string_view>
 
 using folly::SemiFuture;
 using folly::Unit;
 
 namespace facebook::eden {
+
+using namespace std::chrono_literals;
 
 FaultInjector::Fault::Fault(
     std::string_view regex,
@@ -363,6 +367,18 @@ std::vector<std::string> FaultInjector::getBlockedFaults(
     results.emplace_back(blockedCheck.keyValue);
   }
   return results;
+}
+
+bool FaultInjector::waitUntilBlocked(
+    std::string_view keyClass,
+    std::chrono::milliseconds timeout) {
+  while (getBlockedFaults(keyClass).size() == 0 && timeout > 0s) {
+    timeout -= 1s;
+    /* sleep override */
+    sleep(1);
+  }
+
+  return getBlockedFaults(keyClass).size() != 0;
 }
 
 } // namespace facebook::eden
