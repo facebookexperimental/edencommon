@@ -372,10 +372,11 @@ std::vector<std::string> FaultInjector::getBlockedFaults(
 bool FaultInjector::waitUntilBlocked(
     std::string_view keyClass,
     std::chrono::milliseconds timeout) {
-  while (getBlockedFaults(keyClass).size() == 0 && timeout > 0s) {
-    timeout -= 1s;
+  auto start = std::chrono::steady_clock::now();
+  while (std::chrono::steady_clock::now() < start + timeout &&
+         getBlockedFaults(keyClass).size() == 0) {
     /* sleep override */
-    sleep(1);
+    std::this_thread::sleep_for(1ms);
   }
 
   return getBlockedFaults(keyClass).size() != 0;
