@@ -203,3 +203,53 @@ TEST(FaultInjector, getBlockedFaultsWhenErrorInjected) {
   auto inspectRes = fi.getBlockedFaults("mount");
   EXPECT_EQ(0, inspectRes.size());
 }
+
+TEST(FaultInjector, waitUntilBlocked) {
+  FaultInjector faultInjector(true);
+
+  // no faults injected yet, so waitUntilBlocked should return false and block
+  // for the full timeout.
+  auto before = std::chrono::steady_clock::now();
+  EXPECT_FALSE(faultInjector.waitUntilBlocked("mount", 1s));
+  EXPECT_LE(1s, std::chrono::steady_clock::now() - before);
+
+  faultInjector.injectBlock("mount", ".*");
+
+  SCOPE_EXIT {
+    faultInjector.removeFault("mount", ".*");
+    faultInjector.unblock("mount", ".*");
+  };
+
+  // fault injected, but nothing blocking on it yet, so waitUntilBlocked should
+  // return false and block for the full timeout.
+  before = std::chrono::steady_clock::now();
+  EXPECT_FALSE(faultInjector.waitUntilBlocked("mount", 1s));
+  EXPECT_LE(1s, std::chrono::steady_clock::now() - before);
+
+  auto future1 = faultInjector.checkAsync("mount", "/x/y/z");
+  EXPECT_FALSE(future1.isReady());
+
+  // should see the blocked fault now.
+  EXPECT_TRUE(faultInjector.waitUntilBlocked("mount", 1s));
+
+  auto future2 = faultInjector.checkAsync("mount", "/a/b/c");
+  EXPECT_FALSE(future2.isReady());
+
+  // should be still return true with multiple faults blocked
+  EXPECT_TRUE(faultInjector.waitUntilBlocked("mount", 1s));
+
+  faultInjector.unblock("mount", "/a/b/c");
+  ASSERT_NE(future2.isReady(), detail::kImmediateFutureAlwaysDefer);
+
+  // should be still return true since one is still blocked
+  EXPECT_TRUE(faultInjector.waitUntilBlocked("mount", 1s));
+
+  faultInjector.unblock("mount", ".*");
+  ASSERT_NE(future1.isReady(), detail::kImmediateFutureAlwaysDefer);
+
+  // now that the faults has been unblocked waitUntilBlocked should return false
+  // and block for the full timeout.
+  before = std::chrono::steady_clock::now();
+  EXPECT_FALSE(faultInjector.waitUntilBlocked("mount", 1s));
+  EXPECT_LE(1s, std::chrono::steady_clock::now() - before);
+}
