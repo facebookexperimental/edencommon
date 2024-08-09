@@ -69,6 +69,7 @@ class ProcessInfoHandle {
 
  private:
   FRIEND_TEST(ProcessInfoCache, faultinjector);
+  FRIEND_TEST(ProcessInfoCache, multipleLookups);
 
   const folly::SemiFuture<ProcessInfo>& future() const;
 

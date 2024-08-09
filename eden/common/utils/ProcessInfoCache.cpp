@@ -293,7 +293,7 @@ void ProcessInfoCache::workerThread() {
 
     sem_.wait();
     if (faultInjector_) {
-      faultInjector_->check("ProcessInfoCache::workerThread", "");
+      faultInjector_->check("ProcessInfoCache::workerThread", "workerThread");
     }
 
     size_t currentNamesSize;
