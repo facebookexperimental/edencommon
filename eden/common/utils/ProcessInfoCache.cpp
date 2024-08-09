@@ -12,6 +12,7 @@
 #include <folly/logging/xlog.h>
 #include <folly/system/ThreadName.h>
 
+#include "eden/common/utils/FaultInjector.h"
 #include "eden/common/utils/Synchronized.h"
 
 namespace facebook::eden {
@@ -117,16 +118,22 @@ const ProcessInfo& ProcessInfoHandle::get() const {
   return node_->info_.value();
 }
 
+const folly::SemiFuture<ProcessInfo>& ProcessInfoHandle::future() const {
+  return node_->info_;
+}
+
 ProcessInfoCache::ProcessInfoCache(
     std::chrono::nanoseconds expiry,
     ThreadLocalCache* threadLocalCache,
     Clock* clock,
-    ProcessInfo (*readInfo)(pid_t))
+    ProcessInfo (*readInfo)(pid_t),
+    FaultInjector* faultInjector)
     : expiry_{expiry},
       threadLocalCache_{
           threadLocalCache ? *threadLocalCache : realThreadLocalCache},
       clock_{clock ? *clock : realClock},
-      readInfo_{readInfo ? readInfo : readProcessInfo} {
+      readInfo_{readInfo ? readInfo : readProcessInfo},
+      faultInjector_{faultInjector} {
   workerThread_ = std::thread{[this] {
     folly::setThreadName("ProcessInfoCacheWorker");
     workerThread();
@@ -285,6 +292,9 @@ void ProcessInfoCache::workerThread() {
     getAllQueue.clear();
 
     sem_.wait();
+    if (faultInjector_) {
+      faultInjector_->check("ProcessInfoCache::workerThread", "");
+    }
 
     size_t currentNamesSize;
 

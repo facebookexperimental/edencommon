@@ -6,7 +6,10 @@
  */
 
 #include "eden/common/utils/ProcessInfoCache.h"
+
 #include <folly/portability/GTest.h>
+
+#include "eden/common/utils/FaultInjector.h"
 
 namespace {
 
@@ -135,3 +138,35 @@ TEST_F(Fixture, lookup_expires) {
 }
 
 } // namespace
+
+// these tests have to be in the same namespace as ProcessInfoCache so that
+// the FRIEND_TEST macro works to allow them to access private members of
+// the classes there.
+namespace facebook::eden {
+TEST(ProcessInfoCache, faultinjector) {
+  FaultInjector faultInjector = FaultInjector{/*enabled=*/true};
+  ProcessInfoCache processInfoCache = ProcessInfoCache{
+      /*expiry=*/std::chrono::minutes{5},
+      /*threadLocalCache=*/nullptr,
+      /*clock=*/nullptr,
+      /*readInfo=*/nullptr,
+      /*faultInjector=*/&faultInjector};
+
+  // prevent the process info cache from making any progress on looking up pids
+  faultInjector.injectBlock("ProcessInfoCache::workerThread", ".*");
+
+  auto info = processInfoCache.lookup(getpid());
+  ASSERT_TRUE(
+      faultInjector.waitUntilBlocked("ProcessInfoCache::workerThread", 1s));
+
+  ASSERT_FALSE(info.future().isReady());
+
+  // now the worker thread can get to work looking up the pids.
+  faultInjector.removeFault("ProcessInfoCache::workerThread", ".*");
+  faultInjector.unblock("ProcessInfoCache::workerThread", ".*");
+
+  // anything except timing out is fine, might as well check that the name
+  // is something legit.
+  EXPECT_NE("", info.get().name);
+}
+} // namespace facebook::eden

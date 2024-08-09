@@ -7,18 +7,24 @@
 
 #pragma once
 
-#include <folly/Synchronized.h>
-#include <folly/futures/Promise.h>
-#include <folly/synchronization/LifoSem.h>
 #include <chrono>
 #include <map>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include <gtest/gtest_prod.h>
+
+#include <folly/Synchronized.h>
+#include <folly/futures/Promise.h>
+#include <folly/synchronization/LifoSem.h>
+
 #include "eden/common/utils/ProcessInfo.h"
 
 namespace facebook::eden {
+
+class FaultInjector;
 
 namespace detail {
 class ProcessInfoNode;
@@ -62,6 +68,10 @@ class ProcessInfoHandle {
   const ProcessInfo& get() const;
 
  private:
+  FRIEND_TEST(ProcessInfoCache, faultinjector);
+
+  const folly::SemiFuture<ProcessInfo>& future() const;
+
   std::shared_ptr<detail::ProcessInfoNode> node_;
 };
 
@@ -101,7 +111,8 @@ class ProcessInfoCache {
       // For testing:
       ThreadLocalCache* threadLocalCache = nullptr,
       Clock* clock = nullptr,
-      ProcessInfo (*readInfo)(pid_t) = nullptr);
+      ProcessInfo (*readInfo)(pid_t) = nullptr,
+      FaultInjector* faultInjector = nullptr);
 
   ~ProcessInfoCache();
 
@@ -169,6 +180,12 @@ class ProcessInfoCache {
   folly::Synchronized<State> state_;
   folly::LifoSem sem_;
   std::thread workerThread_;
+
+  // For testing various race conditions.
+  // Note: unlike other things that depend on FaultInjector, this pointer
+  // can be null. We only set this in unit tests currently, we will need to
+  // thread through the injector if we want to use it in production EdenFS.
+  FaultInjector* faultInjector_;
 };
 
 } // namespace facebook::eden
