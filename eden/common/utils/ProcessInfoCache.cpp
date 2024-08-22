@@ -110,7 +110,7 @@ const ProcessInfo* ProcessInfoHandle::get_optional() const {
   return node_->info_.isReady() ? &node_->info_.value() : nullptr;
 }
 
-const ProcessInfo& ProcessInfoHandle::get() const {
+ProcessInfo ProcessInfoHandle::get() const {
   XCHECK(node_) << "attempting to use moved-from ProcessInfoHandle";
   auto now = node_->clock_.now();
   node_->recordAccess(now);

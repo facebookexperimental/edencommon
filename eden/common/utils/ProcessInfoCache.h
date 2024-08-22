@@ -65,7 +65,7 @@ class ProcessInfoHandle {
    * May throw, notably if the ProcessInfoCache is destroyed before it could
    * read the process info.
    */
-  const ProcessInfo& get() const;
+  ProcessInfo get() const;
 
  private:
   FRIEND_TEST(ProcessInfoCache, faultinjector);
