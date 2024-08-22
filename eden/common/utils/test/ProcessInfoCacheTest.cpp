@@ -184,32 +184,28 @@ TEST(ProcessInfoCache, multipleLookups) {
   faultInjector.injectBlock("ProcessInfoCache::workerThread", ".*");
 
   auto info1 = processInfoCache.lookup(getpid());
+  auto info2 = processInfoCache.lookup(getpid());
   ASSERT_TRUE(
       faultInjector.waitUntilBlocked("ProcessInfoCache::workerThread", 1s));
 
-  // auto info2 = processInfoCache.lookup(getpid());
-
   // Assumption: these should share the same node since they are cached and
   // worker could not have made any progress yet.
-  // ASSERT_EQ(info1.node_.get(), info2.node_.get());
+  ASSERT_EQ(info1.node_.get(), info2.node_.get());
 
-  // currently if we run both threads it cause a crash sometimes. because both
-  // threads are calling wait() at the same time which can cause multiple
-  // callbacks to be added to the same future core.
   auto thread1 = std::thread{[info = std::move(info1)] {
     folly::setThreadName("info1");
     EXPECT_NE("", info.get().name);
   }};
 
-  // auto thread2 = std::thread{[info = std::move(info2)] {
-  //   folly::setThreadName("info2");
-  //   EXPECT_NE("", info.get().name);
-  // }};
+  auto thread2 = std::thread{[info = std::move(info2)] {
+    folly::setThreadName("info2");
+    EXPECT_NE("", info.get().name);
+  }};
 
   faultInjector.removeFault("ProcessInfoCache::workerThread", ".*");
   faultInjector.unblock("ProcessInfoCache::workerThread", ".*");
 
   thread1.join();
-  // thread2.join();
+  thread2.join();
 }
 } // namespace facebook::eden

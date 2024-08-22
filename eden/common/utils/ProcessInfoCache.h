@@ -22,6 +22,11 @@
 
 #include "eden/common/utils/ProcessInfo.h"
 
+namespace folly {
+template <class T>
+class SharedPromise;
+}
+
 namespace facebook::eden {
 
 class FaultInjector;
@@ -166,7 +171,9 @@ class ProcessInfoCache {
     // The following queues are intentionally unbounded. add() cannot block.
     // TODO: We could set a high limit on the length of the queue and drop
     // requests if necessary.
-    std::vector<std::pair<pid_t, folly::Promise<ProcessInfo>>> lookupQueue;
+    std::vector<
+        std::pair<pid_t, std::shared_ptr<folly::SharedPromise<ProcessInfo>>>>
+        lookupQueue;
     std::vector<folly::Promise<std::map<pid_t, ProcessInfo>>> getAllQueue;
   };
 
