@@ -163,6 +163,14 @@ class ProcessInfoCache {
    */
   std::optional<ProcessName> getProcessName(pid_t pid);
 
+  /**
+   * Commandlines (on linux anyways) use \0 instead of spaces to separate
+   * arguments. sl is often a command we are interested in. and sl also
+   * doed some funky commandline manipulation that causes a bunch of \0 to be
+   * on the end of their commandline. This will clean those off.
+   */
+  static std::string cleanProcessCommandline(std::string process);
+
  private:
   struct State {
     std::unordered_map<pid_t, std::shared_ptr<detail::ProcessInfoNode>> infos;

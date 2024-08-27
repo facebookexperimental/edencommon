@@ -8,6 +8,7 @@
 #include "eden/common/utils/ProcessInfoCache.h"
 
 #include <folly/MapUtil.h>
+#include <folly/String.h>
 #include <folly/container/EvictingCacheMap.h>
 #include <folly/futures/SharedPromise.h>
 #include <folly/logging/xlog.h>
@@ -416,6 +417,12 @@ std::optional<ProcessName> ProcessInfoCache::getProcessName(pid_t pid) {
       getParentProcessId(pid).value_or(0),
       readProcessName(pid),
       readProcessSimpleName(pid)};
+}
+
+/*static*/ std::string ProcessInfoCache::cleanProcessCommandline(
+    std::string processName) {
+  std::replace(processName.begin(), processName.end(), '\0', ' ');
+  return folly::rtrimWhitespace(processName).str();
 }
 
 } // namespace facebook::eden

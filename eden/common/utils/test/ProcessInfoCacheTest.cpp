@@ -208,4 +208,37 @@ TEST(ProcessInfoCache, multipleLookups) {
   thread1.join();
   thread2.join();
 }
+
+TEST(ProcessInfoCache, testSlCommandlineCleaning) {
+  // Sapling does some commandline manipulation to name the background processes
+  // something like pfc[worker/XXXXXXXX]. But this causes the commanline to be
+  // full of null bytes. This is something we want to be filtered out in
+  // telemetry.
+
+  // note to editor: we use the char *, size_t variant of the string constructor
+  // o.w the \0 will be interpreted as the end of the string!
+  auto sl_worker_raw_cmdline = std::string{
+      "pfc[worker/663504]\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+      112};
+
+  EXPECT_EQ(
+      "pfc[worker/663504]",
+      ProcessInfoCache::cleanProcessCommandline(sl_worker_raw_cmdline));
+}
+
+TEST(ProcessInfoCache, testBuckCommandlineCleaning) {
+  // Commandlines are \0 byte separated. We should turn those null bytes into
+  // spaces to make the commandlines easier to read in telemetry.
+
+  // note to editor: we use the char *, size_t variant of the string constructor
+  // o.w the \0 will be interpreted as the end of the string!
+  auto buck2_raw_cmdline = std::string{
+      "buck2d[fbsource]\u0000--isolation-dir\u0000v2\u0000daemon\u0000{\"buck_config\":\"somevalue\"}\u0000",
+      70};
+
+  EXPECT_EQ(
+      "buck2d[fbsource] --isolation-dir v2 daemon {\"buck_config\":\"somevalue\"}",
+      ProcessInfoCache::cleanProcessCommandline(buck2_raw_cmdline));
+}
+
 } // namespace facebook::eden
