@@ -6,9 +6,9 @@
  */
 
 #include "eden/common/telemetry/SessionInfo.h"
-
 #include <folly/Conv.h>
 #include <folly/Exception.h>
+#include "eden/common/eden-config.h"
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <folly/portability/Unistd.h>
@@ -56,6 +56,7 @@ SessionInfo makeSessionInfo(
   env.os = getOperatingSystemName();
   env.osVersion = getOperatingSystemVersion();
   env.appVersion = std::move(appVersion);
+  env.crossEnvSessionId = getCrossEnvSessionId();
 #if defined(__APPLE__)
   env.systemArchitecture = getOperatingSystemArchitecture();
 #endif
@@ -113,6 +114,7 @@ std::string getHostname() {
 }
 
 std::optional<uint64_t> getCiInstanceId() {
+#if defined(LOGGER_FB_SESSION_INFO)
   auto str = std::getenv("SANDCASTLE_INSTANCE_ID");
   if (!str) {
     return std::nullopt;
@@ -123,6 +125,13 @@ std::optional<uint64_t> getCiInstanceId() {
   } catch (const folly::ConversionError&) {
     return std::nullopt;
   }
+#else
+  return std::nullopt;
+#endif
+}
+
+std::string getCrossEnvSessionId() {
+  return std::string();
 }
 
 } // namespace facebook::eden

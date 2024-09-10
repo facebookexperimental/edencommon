@@ -22,6 +22,7 @@ struct SessionInfo {
   std::string os;
   std::string osVersion;
   std::string appVersion;
+  std::string crossEnvSessionId;
 #ifdef __APPLE__
   std::string systemArchitecture;
 #endif
@@ -49,5 +50,12 @@ std::string getHostname();
  * or return empty if CI instance id is unknown.
  */
 std::optional<uint64_t> getCiInstanceId();
+
+/**
+ * Returns the Cross Environment Session Id, which uniquely identifies the host.
+ * This function returns an empty string if the Cross Environment Session Id is
+ * not unknown.
+ */
+std::string getCrossEnvSessionId();
 
 } // namespace facebook::eden
