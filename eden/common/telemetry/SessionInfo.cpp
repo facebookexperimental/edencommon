@@ -8,7 +8,6 @@
 #include "eden/common/telemetry/SessionInfo.h"
 #include <folly/Conv.h>
 #include <folly/Exception.h>
-#include "eden/common/eden-config.h"
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <folly/portability/Unistd.h>
