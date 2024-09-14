@@ -69,6 +69,11 @@ add_subdirectory(eden/common/telemetry)
 add_subdirectory(eden/common/testharness)
 add_subdirectory(eden/common/utils)
 
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/CMake/eden-config.h.in
+  ${CMAKE_CURRENT_SOURCE_DIR}/eden/common/eden-config.h
+)
+
 # Install our own CMake package files for dependent projects.
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
