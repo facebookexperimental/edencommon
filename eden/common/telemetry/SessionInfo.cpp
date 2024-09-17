@@ -8,6 +8,10 @@
 #include "eden/common/telemetry/SessionInfo.h"
 #include <folly/Conv.h>
 #include <folly/Exception.h>
+#include "eden/common/eden-config.h"
+#ifdef LOGGER_FB_SESSION_INFO
+#include "devx_www/cross_env_session_id_cpp/src/lib.h"
+#endif
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <folly/portability/Unistd.h>
@@ -113,7 +117,7 @@ std::string getHostname() {
 }
 
 std::optional<uint64_t> getCiInstanceId() {
-#if defined(LOGGER_FB_SESSION_INFO)
+#ifdef LOGGER_FB_SESSION_INFO
   auto str = std::getenv("SANDCASTLE_INSTANCE_ID");
   if (!str) {
     return std::nullopt;
@@ -130,7 +134,11 @@ std::optional<uint64_t> getCiInstanceId() {
 }
 
 std::string getCrossEnvSessionId() {
+#ifdef LOGGER_FB_SESSION_INFO
+  return std::string(devx_www::cross_environment_session_id::get());
+#else
   return std::string();
+#endif
 }
 
 } // namespace facebook::eden
