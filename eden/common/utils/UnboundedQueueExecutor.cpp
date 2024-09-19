@@ -12,16 +12,37 @@
 #include <folly/executors/task_queue/UnboundedBlockingQueue.h>
 #include <folly/executors/thread_factory/NamedThreadFactory.h>
 
+#include "eden/common/eden-config.h"
+
+#ifdef EDEN_COMMON_HAVE_SERVER_OBSERVER
+#include "common/fb303/cpp/ThreadPoolExecutorCounters.h" // @manual
+#endif
+
 namespace facebook::eden {
+
+namespace {
+
+std::unique_ptr<folly::CPUThreadPoolExecutor> makeExecutor(
+    size_t threadCount,
+    folly::StringPiece threadNamePrefix) {
+  std::unique_ptr<folly::CPUThreadPoolExecutor> executor =
+      std::make_unique<folly::CPUThreadPoolExecutor>(
+          threadCount,
+          std::make_unique<folly::UnboundedBlockingQueue<
+              folly::CPUThreadPoolExecutor::CPUTask>>(),
+          std::make_unique<folly::NamedThreadFactory>(threadNamePrefix));
+#ifdef EDEN_COMMON_HAVE_SERVER_OBSERVER
+  facebook::fb303::installThreadPoolExecutorCounters("", *executor);
+#endif
+  return executor;
+}
+
+} // namespace
 
 UnboundedQueueExecutor::UnboundedQueueExecutor(
     size_t threadCount,
     folly::StringPiece threadNamePrefix)
-    : executor_{std::make_unique<folly::CPUThreadPoolExecutor>(
-          threadCount,
-          std::make_unique<folly::UnboundedBlockingQueue<
-              folly::CPUThreadPoolExecutor::CPUTask>>(),
-          std::make_unique<folly::NamedThreadFactory>(threadNamePrefix))} {}
+    : executor_{makeExecutor(threadCount, threadNamePrefix)} {}
 
 UnboundedQueueExecutor::UnboundedQueueExecutor(
     std::shared_ptr<folly::ManualExecutor> executor)
