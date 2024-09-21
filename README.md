@@ -2,7 +2,7 @@
 This contains various utility libraries common between EdenFS and Watchman as
 well as utilities for clients of EdenFS or Watchman.
 
-See https://github.com/facebookexperimental/eden for more details on EdenFS
+See https://github.com/facebook/sapling for more details on EdenFS
 and https://facebook.github.io/watchman/ for more details on Watchman.
 
 ## Requirements
