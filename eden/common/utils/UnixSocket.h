@@ -403,10 +403,9 @@ class UnixSocket : public folly::DelayedDestruction,
   uint16_t registeredIOEvents_{0};
   bool closeStarted_{false};
 
-  // The takeover data for a single monorepo can exceed 20 MB.  Allow
   // sufficiently large transfers while limiting the risk of making too large
   // of an allocation given bogus data.
-  uint32_t maxDataLength_ = 512 * 1024 * 1024;
+  uint32_t maxDataLength_ = 1024 * 1024 * 1024;
   uint32_t maxFiles_ = 100000;
   std::chrono::milliseconds sendTimeout_{250};
 
