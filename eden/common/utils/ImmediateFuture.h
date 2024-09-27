@@ -333,7 +333,7 @@ class ImmediateFuture {
   // TODO: At the cost of reimplementing parts of Try, we could save a byte or
   // four by merging these tag bits with Try's tag bits, and differentiate
   // between Value, Exception, SemiFuture, and Nothing.
-  Kind kind_;
+  Kind kind_{Kind::Nothing};
 
   union {
     Try immediate_;
