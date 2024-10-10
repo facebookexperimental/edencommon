@@ -19,12 +19,23 @@ struct TypedEvent {
   virtual const char* getType() const = 0;
 };
 
+struct TypelessEvent {
+  virtual ~TypelessEvent() = default;
+  virtual void populate(DynamicEvent&) const = 0;
+};
+
 // Used for unit testing
 struct TestEvent : public TypedEvent {
   // Keep populate() and getType() pure virtual to force subclasses
   // to implement them
   virtual void populate(DynamicEvent&) const override = 0;
   virtual const char* getType() const override = 0;
+};
+
+// Used for unit testing
+struct TypelessTestEvent : public TypelessEvent {
+  // Keep populate() pure virtual to force subclasses to implement it
+  virtual void populate(DynamicEvent&) const override = 0;
 };
 
 } // namespace facebook::eden

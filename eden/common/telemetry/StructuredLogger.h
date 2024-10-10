@@ -20,6 +20,18 @@ class StructuredLogger {
   explicit StructuredLogger(bool enabled, SessionInfo sessionInfo);
   virtual ~StructuredLogger() = default;
 
+  void logEvent(const TypelessEvent& event) {
+    // Avoid a bunch of work if it's going to be thrown away by the
+    // logDynamicEvent implementation.
+    if (!enabled_) {
+      return;
+    }
+
+    DynamicEvent de{populateDefaultFields(std::nullopt)};
+    event.populate(de);
+    logDynamicEvent(std::move(de));
+  }
+
   void logEvent(const TypedEvent& event) {
     // Avoid a bunch of work if it's going to be thrown away by the
     // logDynamicEvent implementation.
@@ -35,7 +47,7 @@ class StructuredLogger {
  protected:
   virtual void logDynamicEvent(DynamicEvent event) = 0;
 
-  virtual DynamicEvent populateDefaultFields(const char* type);
+  virtual DynamicEvent populateDefaultFields(std::optional<const char*> type);
 
   bool enabled_;
   uint32_t sessionId_;

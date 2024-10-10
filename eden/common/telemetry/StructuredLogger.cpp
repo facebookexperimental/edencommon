@@ -25,13 +25,16 @@ StructuredLogger::StructuredLogger(bool enabled, SessionInfo sessionInfo)
       sessionId_{getSessionId()},
       sessionInfo_{std::move(sessionInfo)} {}
 
-DynamicEvent StructuredLogger::populateDefaultFields(const char* type) {
+DynamicEvent StructuredLogger::populateDefaultFields(
+    std::optional<const char*> type) {
   DynamicEvent event;
   if (kExplicitTimeField) {
     event.addInt("time", ::time(nullptr));
   }
   event.addInt("session_id", sessionId_);
-  event.addString("type", type);
+  if (type.has_value()) {
+    event.addString("type", *type);
+  }
   event.addString("user", sessionInfo_.username);
   event.addString("host", sessionInfo_.hostname);
   event.addString("os", sessionInfo_.os);
