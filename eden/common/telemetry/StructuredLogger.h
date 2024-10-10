@@ -10,6 +10,7 @@
 #include <unordered_map>
 
 #include "eden/common/telemetry/DynamicEvent.h"
+#include "eden/common/telemetry/LogEvent.h"
 #include "eden/common/telemetry/SessionInfo.h"
 
 namespace facebook::eden {
@@ -19,21 +20,14 @@ class StructuredLogger {
   explicit StructuredLogger(bool enabled, SessionInfo sessionInfo);
   virtual ~StructuredLogger() = default;
 
-  template <typename Event>
-  void logEvent(const Event& event) {
+  void logEvent(const TypedEvent& event) {
     // Avoid a bunch of work if it's going to be thrown away by the
     // logDynamicEvent implementation.
     if (!enabled_) {
       return;
     }
 
-    // constexpr to ensure that the type field on the Event struct is constexpr
-    // too.
-    constexpr const char* type = Event::type;
-
-    // TODO: consider moving the event to another thread and populating the
-    // default fields there to reduce latency at the call site.
-    DynamicEvent de{populateDefaultFields(type)};
+    DynamicEvent de{populateDefaultFields(event.getType())};
     event.populate(de);
     logDynamicEvent(std::move(de));
   }
