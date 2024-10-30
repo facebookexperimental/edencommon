@@ -28,8 +28,7 @@ std::unique_ptr<folly::CPUThreadPoolExecutor> makeExecutor(
   std::unique_ptr<folly::CPUThreadPoolExecutor> executor =
       std::make_unique<folly::CPUThreadPoolExecutor>(
           threadCount,
-          std::make_unique<folly::UnboundedBlockingQueue<
-              folly::CPUThreadPoolExecutor::CPUTask>>(),
+          folly::CPUThreadPoolExecutor::makeDefaultQueue(),
           std::make_unique<folly::NamedThreadFactory>(threadNamePrefix));
 #ifdef EDEN_COMMON_HAVE_SERVER_OBSERVER
   facebook::fb303::installThreadPoolExecutorCounters("", *executor);
