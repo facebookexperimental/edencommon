@@ -6,8 +6,6 @@
  */
 
 #include "eden/common/utils/FileDescriptor.h"
-#include <folly/String.h>
-#include <folly/logging/xlog.h>
 #include <folly/portability/GTest.h>
 #include <folly/test/TestUtils.h>
 #include <list>

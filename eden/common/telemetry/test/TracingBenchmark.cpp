@@ -6,11 +6,8 @@
  */
 
 #include <benchmark/benchmark.h>
-#include <folly/init/Init.h>
-#include <folly/synchronization/test/Barrier.h>
 
 #include "eden/common/telemetry/Tracing.h"
-#include "eden/common/utils/benchharness/Bench.h"
 
 using namespace facebook::eden;
 

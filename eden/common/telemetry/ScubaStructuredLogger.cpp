@@ -8,7 +8,6 @@
 #include "eden/common/telemetry/ScubaStructuredLogger.h"
 
 #include <folly/json/json.h>
-#include <folly/logging/xlog.h>
 
 #include "eden/common/telemetry/SubprocessScribeLogger.h"
 
