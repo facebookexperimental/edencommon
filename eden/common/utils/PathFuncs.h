@@ -131,7 +131,9 @@ T move_or_copy(T& t) noexcept {
 }
 
 /**
- * C++20 introduces this constructor for std::string_view, but EdenFS is C++17.
+ * C++20 introduces this constructor for std::string_view. However, this doesn't
+ * matter for our use case, since the new constructor is not NOEXCEPT and
+ * therefore cannot be utilized in many places.
  */
 inline std::string_view string_view_range(const char* begin, const char* end) {
   XDCHECK_LE(begin, end);
