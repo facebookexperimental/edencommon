@@ -9,6 +9,7 @@
 
 #include <folly/Try.h>
 #include <folly/portability/IOVec.h>
+#include <folly/portability/SysTypes.h>
 
 #include "eden/common/utils/PathFuncs.h"
 

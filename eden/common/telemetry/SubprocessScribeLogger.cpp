@@ -8,6 +8,7 @@
 #include "eden/common/telemetry/SubprocessScribeLogger.h"
 
 #include <folly/logging/xlog.h>
+#include <folly/portability/Unistd.h>
 #include <folly/system/ThreadName.h>
 
 namespace {
