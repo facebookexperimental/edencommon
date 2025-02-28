@@ -16,7 +16,7 @@ namespace {
 using namespace facebook::eden;
 
 void ImmediateFuture_thenValue_with_int(benchmark::State& state) {
-  ImmediateFuture<uint64_t> fut = 0;
+  ImmediateFuture<uint64_t> fut = 0ULL;
 
   for (auto _ : state) {
     auto newFut = std::move(fut).thenValue([](uint64_t v) { return v + 1; });
