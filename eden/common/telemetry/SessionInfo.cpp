@@ -24,6 +24,7 @@
 
 #include <cstdlib>
 
+#include "common/rust/devserver_fingerprint/ffi/src/lib.rs.h" // @manual
 #include "eden/common/utils/SysctlUtil.h"
 
 namespace {
@@ -60,6 +61,7 @@ SessionInfo makeSessionInfo(
   env.osVersion = getOperatingSystemVersion();
   env.appVersion = std::move(appVersion);
   env.crossEnvSessionId = getCrossEnvSessionId();
+  env.systemFingerprint = getSystemFingerprint();
 #if defined(__APPLE__)
   env.systemArchitecture = getOperatingSystemArchitecture();
 #endif
@@ -139,6 +141,10 @@ std::string getCrossEnvSessionId() {
 #else
   return std::string();
 #endif
+}
+
+std::string getSystemFingerprint() {
+  return std::string(devserver_fingerprint::fingerprint());
 }
 
 } // namespace facebook::eden

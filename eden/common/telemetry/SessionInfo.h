@@ -23,6 +23,7 @@ struct SessionInfo {
   std::string osVersion;
   std::string appVersion;
   std::string crossEnvSessionId;
+  std::string systemFingerprint;
 #ifdef __APPLE__
   std::string systemArchitecture;
 #endif
@@ -57,5 +58,10 @@ std::optional<uint64_t> getCiInstanceId();
  * not unknown.
  */
 std::string getCrossEnvSessionId();
+
+/*
+ * Returns the system fingerprint (the top level digest of the system metadata)
+ */
+std::string getSystemFingerprint();
 
 } // namespace facebook::eden
