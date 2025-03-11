@@ -26,6 +26,15 @@ class DynamicEvent {
   DynamicEvent& operator=(const DynamicEvent&) = default;
   DynamicEvent& operator=(DynamicEvent&&) = default;
 
+  /**
+   * Truncate the given integer and only keeps the highest significant bits.
+   * This method is intended to be used for data which does not have to be
+   * 100% accurate. This is used to reduce the integer cardinality to save
+   * storage quota in databases.
+   */
+  void
+  addTruncatedInt(std::string name, int64_t value, uint32_t bits_to_keep = 8);
+
   void addInt(std::string name, int64_t value);
   void addString(std::string name, std::string value);
   void addDouble(std::string name, double value);

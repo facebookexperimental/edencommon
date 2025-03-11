@@ -24,6 +24,24 @@ void validateUtf8(folly::StringPiece sp) {
 
 namespace facebook::eden {
 
+void DynamicEvent::addTruncatedInt(
+    std::string name,
+    int64_t value,
+    uint32_t bits_to_keep) {
+  // Check that bits is within valid range
+  XCHECK_LE(bits_to_keep, 64U);
+  // Calculate the position of the highest set bit in value
+  uint32_t highest = 64 - __builtin_clzll(value);
+  if (highest <= bits_to_keep) {
+    addInt(std::move(name), value);
+  } else {
+    uint64_t mask = (1ULL << bits_to_keep) - 1;
+    mask <<= (highest - bits_to_keep);
+    // Apply the mask to val using bitwise AND
+    addInt(std::move(name), value & mask);
+  }
+}
+
 void DynamicEvent::addInt(std::string name, int64_t value) {
   auto [iter, inserted] = ints_.emplace(std::move(name), value);
   if (!inserted) {

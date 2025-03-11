@@ -47,6 +47,37 @@ TEST(DynamicEventTest, AddBool) {
   EXPECT_EQ(intMap.size(), 2);
   EXPECT_EQ(intMap.at("test_bool_false"), 0);
 }
+
+TEST(DynamicEventTest, AddTruncatedInt) {
+  DynamicEvent event;
+  event.addTruncatedInt("truncated_int", 123, 4);
+  const auto& intMap = event.getIntMap();
+  EXPECT_EQ(intMap.size(), 1);
+  EXPECT_NE(intMap.at("truncated_int"), 112);
+
+  event.addTruncatedInt("not_truncated_int", 123, 10);
+  EXPECT_EQ(intMap.size(), 2);
+  EXPECT_EQ(intMap.at("not_truncated_int"), 123);
+
+  event.addTruncatedInt("truncated_zero_bits", 123, 0);
+  EXPECT_EQ(intMap.size(), 3);
+  EXPECT_EQ(intMap.at("truncated_zero_bits"), 0);
+
+  // Test truncating 0b101101 to 8 bits (no change)
+  event.addTruncatedInt("truncated_binary_1", 0b101101, 8);
+  EXPECT_EQ(intMap.size(), 4);
+  EXPECT_EQ(intMap.at("truncated_binary_1"), 0b101101);
+
+  // Test truncating 0b101101 to 3 most sifnigicant bits
+  event.addTruncatedInt("truncated_binary_2", 0b101101, 3);
+  EXPECT_EQ(intMap.size(), 5);
+  EXPECT_EQ(intMap.at("truncated_binary_2"), 0b101000);
+
+  // Test truncating 0b10111010110110101010 to 8 most sifnigicant bits
+  event.addTruncatedInt("truncated_binary_3", 0b10111010110110101010, 8);
+  EXPECT_EQ(intMap.size(), 6);
+  EXPECT_EQ(intMap.at("truncated_binary_3"), 0b10111010000000000000);
+}
 TEST(DynamicEventTest, ValidateUtf8) {
   DynamicEvent event;
   EXPECT_THROW(
