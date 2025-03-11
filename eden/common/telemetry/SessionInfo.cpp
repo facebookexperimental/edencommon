@@ -24,7 +24,9 @@
 
 #include <cstdlib>
 
+#ifdef EDEN_COMMON_HAVE_DEVSERVER_FINGERPRINT
 #include "common/rust/devserver_fingerprint/ffi/src/lib.rs.h" // @manual
+#endif
 #include "eden/common/utils/SysctlUtil.h"
 
 namespace {
@@ -144,7 +146,11 @@ std::string getCrossEnvSessionId() {
 }
 
 std::string getSystemFingerprint() {
+#ifdef EDEN_COMMON_HAVE_DEVSERVER_FINGERPRINT
   return std::string(devserver_fingerprint::fingerprint());
+#else
+  return std::string();
+#endif
 }
 
 } // namespace facebook::eden
