@@ -150,14 +150,14 @@ class ProcessInfoCache {
   std::map<pid_t, ProcessName> getAllProcessNames();
 
   /**
-   * Called occassionally to produce the info of the pid. If the info has
+   * Called occasionally to produce the info of the pid. If the info has
    * already been resolved this returns that info. Otherwise this will return
    * nullopt. In the future it may wait for the info to be resolved.
    */
   std::optional<ProcessInfo> getProcessInfo(pid_t pid);
 
   /**
-   * Called occassionally to produce the name of the pid. If the info has
+   * Called occasionally to produce the name of the pid. If the info has
    * already been resolved this returns that info's name. Otherwise this will
    * return nullopt.
    */
@@ -166,7 +166,7 @@ class ProcessInfoCache {
   /**
    * Commandlines (on linux anyways) use \0 instead of spaces to separate
    * arguments. sl is often a command we are interested in. and sl also
-   * doed some funky commandline manipulation that causes a bunch of \0 to be
+   * does some funky commandline manipulation that causes a bunch of \0 to be
    * on the end of their commandline. This will clean those off.
    */
   static std::string cleanProcessCommandline(std::string process);

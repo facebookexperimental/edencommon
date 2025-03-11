@@ -42,7 +42,7 @@ FOLLY_NODISCARD folly::Future<int> waitForIO(
  * A helper class to provide a folly::Future that completes when a socket is
  * ready for I/O.
  *
- * This is similar to use waitForIO(), but can be re-used multiple times if you
+ * This is similar to use waitForIO(), but can be reused multiple times if you
  * need to repeatedly wait for I/O.
  */
 class IoFuture : private folly::EventHandler, private folly::AsyncTimeout {

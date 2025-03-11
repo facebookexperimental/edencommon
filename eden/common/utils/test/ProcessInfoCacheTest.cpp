@@ -211,7 +211,7 @@ TEST(ProcessInfoCache, multipleLookups) {
 
 TEST(ProcessInfoCache, testSlCommandlineCleaning) {
   // Sapling does some commandline manipulation to name the background processes
-  // something like pfc[worker/XXXXXXXX]. But this causes the commanline to be
+  // something like pfc[worker/XXXXXXXX]. But this causes the commandline to be
   // full of null bytes. This is something we want to be filtered out in
   // telemetry.
 

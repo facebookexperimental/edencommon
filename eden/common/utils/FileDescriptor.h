@@ -30,7 +30,7 @@ struct OpenFileHandleOptions {
   // Has no meaning on win32.  On posix systems, will be modified by umask(2).
   int createMode;
 
-  // Convervative defaults won't follow symlinks and won't be inherited
+  // Conservative defaults won't follow symlinks and won't be inherited
   OpenFileHandleOptions()
       : followSymlinks(0),
         closeOnExec(1),

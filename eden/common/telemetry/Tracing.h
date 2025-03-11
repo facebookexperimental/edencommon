@@ -31,7 +31,7 @@ struct CompactTracePoint {
   // Opaque identifier for this "block" where a block is some logical
   // piece of work with a well-defined start and stop point
   uint64_t blockId;
-  // Opaque identifer for the parent block from which the current
+  // Opaque identifier for the parent block from which the current
   // block was constructed - used to create causal relationships
   // between blocks
   uint64_t parentBlockId;

@@ -67,7 +67,7 @@ TEST(IoFuture, multiRead) {
   auto sockets = createSocketPair();
   EventBase evb;
 
-  // Re-use the same IoFuture object for multiple reads.
+  // Reuse the same IoFuture object for multiple reads.
   IoFuture iof{&evb, sockets.first.fd()};
 
   // Wait for writability.  This should be immediately ready.

@@ -111,7 +111,7 @@ struct REPARSE_DATA_BUFFER {
     } MountPointReparseBuffer;
     struct {
       // The format here is not officially documented, so this format is what
-      // we have infered from our own local testing, and what's mentioned on
+      // we have inferred from our own local testing, and what's mentioned on
       // github: https://github.com/microsoft/ProjFS-Managed-API/issues/55
       UINT UnknownMaybeVersion;
       BYTE ProjFsFlags;

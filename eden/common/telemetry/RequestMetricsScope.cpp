@@ -126,7 +126,7 @@ RequestMetricsScope::DefaultRequestDuration RequestMetricsScope::getMaxDuration(
       return RequestMetricsScope::DefaultRequestDuration{0};
     }
 
-    // By virtue of enqueing new watches at the end of the list, the front will
+    // By virtue of enqueuing new watches at the end of the list, the front will
     // always be the watch that has been in the list the longest, ie: the one
     // with the max duration.
     return lockedWatches->front().elapsed();

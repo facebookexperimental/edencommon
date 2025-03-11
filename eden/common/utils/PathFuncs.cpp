@@ -164,7 +164,7 @@ AbsolutePath canonicalPathImpl(
   }
 
   // Get the components from the base path
-  // For simplicity we are just re-using canonicalPathData() even though the
+  // For simplicity we are just reusing canonicalPathData() even though the
   // base path is guaranteed to already be in canonical form.
   CanonicalData baseCanon;
   AbsolutePath cwd;

@@ -23,7 +23,7 @@ namespace facebook::eden {
 std::string durationStr(std::chrono::nanoseconds duration);
 
 /**
- * Comparision operators for comparing two timespec structs.
+ * Comparison operators for comparing two timespec structs.
  */
 bool operator<(const timespec& a, const timespec& b);
 bool operator<=(const timespec& a, const timespec& b);

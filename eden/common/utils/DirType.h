@@ -32,7 +32,7 @@ namespace facebook::eden {
 
 #ifdef _WIN32
 /**
- * Convertion between st_mode and d_type on Windows. On Windows the 4th nibble
+ * Conversion between st_mode and d_type on Windows. On Windows the 4th nibble
  * of mode contains the type of directory entry. Right shifting by 12 bits to
  * form a d_type.
  */

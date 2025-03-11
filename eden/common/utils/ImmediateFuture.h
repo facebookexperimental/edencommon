@@ -294,7 +294,7 @@ class ImmediateFuture {
     EagerSemiFuture,
     /**
      * The SemiFuture is never considered ready even if it is. This can be used
-     * to force lazyness by ImmediateFuture users. Prefer using
+     * to force laziness by ImmediateFuture users. Prefer using
      * makeNotReadyImmediateFuture to obtain a lazy behavior.
      */
     LazySemiFuture,

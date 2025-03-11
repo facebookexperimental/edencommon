@@ -282,7 +282,7 @@ uid_t UnixSocket::getRemoteUID() {
   //   LOCAL_PEERCRED option does not.  Even on Linux, the remote process ID
   //   should only be used for debugging/logging purposes.  It generally
   //   shouldn't be used for other purposes since the remote process may have
-  //   exited and the process ID could have been re-used by the time we process
+  //   exited and the process ID could have been reused by the time we process
   //   it here.
   //
   // - We don't return group information.  Linux's SO_PEERCRED only returns the
@@ -551,10 +551,10 @@ bool UnixSocket::trySendMessage(SendQueueEntry* entry) {
     //
     // We send more than kMaxFDs in additional send calls after the main
     // message body.  We have to include at least 1 byte of normal data in each
-    // sendmsg() call, so we send a single 0 byte with each remainging chunk of
+    // sendmsg() call, so we send a single 0 byte with each remaining chunk of
     // FDs.
     XCHECK_LT(entry->filesSent, entry->message.files.size());
-    // We re-use the header iovec to point at our 1 byte of data,
+    // We reuse the header iovec to point at our 1 byte of data,
     // since we are don sending the header and don't need it to point at the
     // header any more.
     entry->iov[0].iov_base = &dataByte;
@@ -709,7 +709,7 @@ void UnixSocket::tryReceive() {
       break;
     }
 
-    // We finished receiveing a full message.
+    // We finished receiving a full message.
     // Reset headerBytesReceived_ and invoke the receive callback.
     headerBytesReceived_ = 0;
     receiveCallback_->messageReceived(Message{std::move(recvMessage_)});

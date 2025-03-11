@@ -1731,7 +1731,7 @@ class AbsolutePathBase : public ComposedPathBase<
  *   "bar/baz"
  *   "baz"
  *
- * When iterating in reverse it yeilds:
+ * When iterating in reverse it yields:
  *   "baz"
  *   "bar/baz"
  *   "foo/bar/baz"
@@ -2056,7 +2056,7 @@ AbsolutePath getcwd();
  * This removes duplicate "/" characters, and resolves "/./" and "/../"
  * components.
  *
- * Note that we intentially convert a leading "//" to "/
+ * Note that we intentionally convert a leading "//" to "/
  * (e.g., "//foo" --> "/foo").  (POSIX specifies that a leading "//" has
  * special platform-defined behavior, so other libraries sometimes leave it
  * as-is instead of replacing it with just one "/".)

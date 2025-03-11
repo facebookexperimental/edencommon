@@ -246,7 +246,7 @@ class UnixSocket : public folly::DelayedDestruction,
    * Set the ReceiveCallback to be notified when data is received on this
    * socket.
    *
-   * Throws an exception if a ReceiveCallback is alraedy installed on this
+   * Throws an exception if a ReceiveCallback is already installed on this
    * socket.
    */
   void setReceiveCallback(ReceiveCallback* callback);

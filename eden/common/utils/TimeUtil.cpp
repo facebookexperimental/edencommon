@@ -64,7 +64,7 @@ std::string durationStr(std::chrono::nanoseconds duration) {
   }
 }
 
-// Set of all the Comparision operators for comparing two timespec structs.
+// Set of all the Comparison operators for comparing two timespec structs.
 bool operator<(const timespec& a, const timespec& b) {
   XCHECK_LT(a.tv_nsec, 1000000000);
   XCHECK_LT(b.tv_nsec, 1000000000);
