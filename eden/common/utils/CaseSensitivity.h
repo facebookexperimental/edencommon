@@ -8,6 +8,7 @@
 #pragma once
 
 #include <folly/Portability.h>
+#include <ostream>
 
 namespace facebook::eden {
 enum class CaseSensitivity : bool {
@@ -17,4 +18,8 @@ enum class CaseSensitivity : bool {
 
 constexpr CaseSensitivity kPathMapDefaultCaseSensitive =
     static_cast<CaseSensitivity>(folly::kIsLinux);
+
+inline std::ostream& operator<<(std::ostream& os, CaseSensitivity cs) {
+  return os << (cs == CaseSensitivity::Sensitive ? "Sensitive" : "Insensitive");
+}
 } // namespace facebook::eden
