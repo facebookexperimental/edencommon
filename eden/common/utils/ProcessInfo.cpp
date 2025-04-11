@@ -467,6 +467,12 @@ std::optional<ProcessUserInfo> readUserInfo(
     userInfo->ruid = status->uid;
 
   } while (status->pid != 1 && status->uid == 0 && config.resolveRootUser);
+
+  if (userInfo.has_value() && config.fetchUsernames) {
+    userInfo->getRealUsername();
+    userInfo->getEffectiveUsername();
+  }
+
   return userInfo;
 #endif
 }

@@ -39,6 +39,8 @@ using ProcessSimpleName = std::string;
 struct ReadUserInfoConfig {
   // Attempt to find the 'real user' if effective user is root
   bool resolveRootUser = false;
+  // Fetch usernames for uid/euid during readUserInfo
+  bool fetchUsernames = false;
 };
 /**
  * Information collected about the user running the process.
