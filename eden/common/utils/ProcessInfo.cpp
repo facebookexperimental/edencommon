@@ -18,21 +18,29 @@
 #endif
 
 #include "eden/common/utils/ProcessInfo.h"
+#include "eden/common/utils/UserInfo.h"
 #include "eden/common/utils/WinError.h"
 
 #include <folly/Exception.h>
 #include <folly/FileUtil.h>
 #include <folly/String.h>
 #include <folly/lang/ToAscii.h>
+#include <folly/logging/xlog.h>
 #include "eden/common/utils/Handle.h"
 #include "eden/common/utils/StringConv.h"
 
+#include <fstream>
 #include <optional>
+#include <sstream>
 
 #ifdef __APPLE__
 #include <libproc.h> // @manual
 #include <sys/proc_info.h> // @manual
 #include <sys/sysctl.h> // @manual
+#endif
+
+#ifndef _WIN32
+#include <pwd.h>
 #endif
 
 namespace facebook::eden {
@@ -162,6 +170,51 @@ ProcPidCmdLine getProcPidCmdLine(pid_t pid) {
   memcpy(path.data() + 6 + digits, "/cmdline", 9);
   return path;
 }
+
+struct StatusInfo {
+  pid_t pid;
+  pid_t ppid{};
+  uid_t uid{};
+
+  StatusInfo(pid_t pid, pid_t ppid, uid_t uid)
+      : pid(pid), ppid(ppid), uid(uid) {}
+
+  static std::optional<StatusInfo> create(pid_t pid) {
+    pid_t ppid;
+    uid_t uid;
+
+    bool foundPpid{false};
+    bool foundUid{false};
+
+    std::string statusPath = folly::to<std::string>("/proc/", pid, "/status");
+    std::string line;
+    std::fstream fs(statusPath, std::ios_base::in);
+    while (std::getline(fs, line)) {
+      if (!foundUid) {
+        foundUid = parseStatusLine(line, "Uid:", uid);
+      }
+      if (!foundPpid) {
+        foundPpid = parseStatusLine(line, "PPid:", ppid);
+      }
+      if (foundUid && foundPpid) {
+        return StatusInfo(pid, ppid, uid);
+      }
+    }
+    XLOGF(DBG4, "Failed to read status for pid: {}", pid);
+    return std::nullopt;
+  }
+
+  template <typename T>
+  static bool
+  parseStatusLine(std::string& line, std::string_view entry, T& val) {
+    if (eden::starts_with(line, entry)) {
+      std::istringstream iss(line.substr(entry.size()));
+      iss >> val;
+      return !iss.fail();
+    }
+    return false;
+  }
+};
 
 } // namespace detail
 
@@ -368,8 +421,50 @@ ProcessSimpleName readProcessSimpleName([[maybe_unused]] pid_t pid) {
         errno);
   }
 #endif
-
   return ProcessSimpleName("<unknown>");
+}
+
+/* static */
+std::string ProcessUserInfo::uidToUsername(uid_t uid) {
+// Convert UID to username
+#ifdef _WIN32
+  return "<unknown>";
+#else
+  auto userInfo = UserInfo::getPasswdUid(uid);
+  return userInfo.pwd.pw_name;
+#endif
+}
+
+std::optional<ProcessUserInfo> readUserInfo(pid_t pid) {
+#ifdef __APPLE__
+  // Not implemented
+  (void)pid;
+  return std::nullopt;
+#elif _WIN32
+  // Not implemented
+  (void)pid;
+  return std::nullopt;
+#else
+  // Linux
+  std::optional<ProcessUserInfo> userInfo = std::nullopt;
+  std::optional<detail::StatusInfo> status;
+  do {
+    if (status.has_value()) {
+      pid = status->ppid;
+    }
+    status = detail::StatusInfo::create(pid);
+    if (!status.has_value()) {
+      break;
+    }
+
+    if (!userInfo.has_value()) {
+      userInfo = ProcessUserInfo{status->uid, status->uid};
+    }
+    userInfo->ruid = status->uid;
+
+  } while (status->pid != 1 && status->uid == 0);
+  return userInfo;
+#endif
 }
 
 std::optional<pid_t> getParentProcessId([[maybe_unused]] pid_t pid) {

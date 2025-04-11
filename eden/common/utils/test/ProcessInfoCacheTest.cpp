@@ -118,7 +118,7 @@ struct Fixture : ::testing::Test, ProcessInfoCache::ThreadLocalCache {
 Fixture* Fixture::ThisHolder::this_ = nullptr;
 
 TEST_F(Fixture, lookup_expires) {
-  (*infos.wlock())[10] = {0, "watchman", "watchman"};
+  (*infos.wlock())[10] = {0, "watchman", "watchman", ProcessUserInfo()};
   auto lookup = pic.lookup(10);
   EXPECT_EQ("watchman", lookup.get().name);
 
@@ -126,12 +126,12 @@ TEST_F(Fixture, lookup_expires) {
 
   // For the info to expire, we either need to add some new pids and trip the
   // water level check, or call getAllProcessInfos.
-  (*infos.wlock())[11] = {0, "new", "new"};
-  (*infos.wlock())[12] = {0, "newer", "newer"};
+  (*infos.wlock())[11] = {0, "new", "new", ProcessUserInfo()};
+  (*infos.wlock())[12] = {0, "newer", "newer", ProcessUserInfo()};
   EXPECT_EQ("new", pic.lookup(11).get().name);
   EXPECT_EQ("newer", pic.lookup(12).get().name);
 
-  (*infos.wlock())[10] = {0, "edenfs", "edenfs"};
+  (*infos.wlock())[10] = {0, "edenfs", "edenfs", ProcessUserInfo()};
   EXPECT_EQ("edenfs", pic.lookup(10).get().name);
 
   // But the old lookup should still have the old info.
@@ -169,6 +169,35 @@ TEST(ProcessInfoCache, faultinjector) {
   // anything except timing out is fine, might as well check that the name
   // is something legit.
   EXPECT_NE("", info.get().name);
+}
+
+TEST(ProcessInfoCache, fetchUserInfo) {
+  {
+    ProcessInfoCache processInfoCache = ProcessInfoCache();
+    auto info = processInfoCache.lookup(getpid());
+    EXPECT_FALSE(info.get().userInfo.has_value());
+  }
+
+  {
+    ProcessInfoCache processInfoCache =
+        ProcessInfoCache(ProcessInfoCache::ReadFuncConfig());
+    auto info = processInfoCache.lookup(getpid());
+    EXPECT_FALSE(info.get().userInfo.has_value());
+  }
+
+  {
+    ProcessInfoCache processInfoCache =
+        ProcessInfoCache(ProcessInfoCache::ReadFuncConfig(false));
+    auto info = processInfoCache.lookup(getpid());
+    EXPECT_FALSE(info.get().userInfo.has_value());
+  }
+
+  {
+    ProcessInfoCache processInfoCache =
+        ProcessInfoCache(ProcessInfoCache::ReadFuncConfig(true));
+    auto info = processInfoCache.lookup(getpid());
+    EXPECT_TRUE(info.get().userInfo.has_value());
+  }
 }
 
 TEST(ProcessInfoCache, multipleLookups) {

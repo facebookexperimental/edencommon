@@ -146,13 +146,13 @@ ProcessInfoCache::ProcessInfoCache(
     std::chrono::nanoseconds expiry,
     ThreadLocalCache* threadLocalCache,
     Clock* clock,
-    ProcessInfo (*readInfo)(pid_t),
+    const std::function<ProcessInfo(pid_t)>& readInfo,
     FaultInjector* faultInjector)
     : expiry_{expiry},
       threadLocalCache_{
           threadLocalCache ? *threadLocalCache : realThreadLocalCache},
       clock_{clock ? *clock : realClock},
-      readInfo_{readInfo ? readInfo : readProcessInfo},
+      readInfo_{readInfo ? std::move(readInfo) : makeReadProcessInfoFunc()},
       faultInjector_{faultInjector} {
   workerThread_ = std::thread{[this] {
     folly::setThreadName("ProcessInfoCacheWorker");
@@ -412,11 +412,15 @@ std::optional<ProcessName> ProcessInfoCache::getProcessName(pid_t pid) {
   return std::nullopt;
 }
 
-/* static*/ ProcessInfo ProcessInfoCache::readProcessInfo(pid_t pid) {
-  return ProcessInfo{
-      getParentProcessId(pid).value_or(0),
-      readProcessName(pid),
-      readProcessSimpleName(pid)};
+/* static*/ std::function<ProcessInfo(pid_t)>
+ProcessInfoCache::makeReadProcessInfoFunc(ReadFuncConfig config) {
+  return [fetchUserInfo = config.fetchUserInfo](pid_t pid) {
+    return ProcessInfo{
+        getParentProcessId(pid).value_or(0),
+        readProcessName(pid),
+        readProcessSimpleName(pid),
+        fetchUserInfo ? readUserInfo(pid) : std::nullopt};
+  };
 }
 
 /*static*/ std::string ProcessInfoCache::cleanProcessCommandline(

@@ -34,12 +34,22 @@ using ProcessName = std::string;
 using ProcessSimpleName = std::string;
 
 /**
+ * Information collected about the user running the process.
+ */
+struct ProcessUserInfo {
+  uid_t ruid;
+  uid_t euid;
+  static std::string uidToUsername(uid_t uid);
+};
+
+/**
  * Information collected about a process. Used for diagnostic tools and logging.
  */
 struct ProcessInfo {
   pid_t ppid;
   ProcessName name;
   ProcessSimpleName simpleName;
+  std::optional<ProcessUserInfo> userInfo;
 };
 
 /**
@@ -57,6 +67,13 @@ ProcessName readProcessName(pid_t pid);
  * or an error occurs while fetching, returns "<unknown>".
  */
 ProcessSimpleName readProcessSimpleName(pid_t pid);
+
+/*
+ * Fetches the ProcessUserInfo from a pid
+ * If the pid is invalid or an error occurs while fetching then we return
+ * ProcessUserInfo with default values.
+ */
+std::optional<ProcessUserInfo> readUserInfo(pid_t pid);
 
 /**
  * Get the parent process ID of the specified process ID, if one exists.

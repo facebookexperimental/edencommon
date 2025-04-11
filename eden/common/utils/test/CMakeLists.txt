@@ -13,6 +13,7 @@ add_executable(
     MemoryTest.cpp
     PathFuncsTest.cpp
     ProcessInfoCacheTest.cpp
+    ProcessInfoTest.cpp
     RefPtrTest.cpp
     ScopedEnvVar.cpp
     SpawnedProcessTest.cpp

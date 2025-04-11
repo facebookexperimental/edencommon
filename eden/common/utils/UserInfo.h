@@ -9,6 +9,7 @@
 #include <folly/portability/SysTypes.h>
 #ifndef _WIN32
 #include <gtest/gtest_prod.h>
+#include <pwd.h>
 #endif
 
 #include "eden/common/utils/PathFuncs.h"
@@ -79,6 +80,15 @@ class UserInfo {
   static constexpr uid_t kDefaultNobodyUid = 65534;
   static constexpr gid_t kDefaultNobodyGid = 65534;
 
+#ifndef _WIN32
+  struct PasswdEntry;
+
+  /**
+   * Look up the passwd entry for the specified user ID.
+   */
+  static PasswdEntry getPasswdUid(uid_t uid);
+#endif
+
  private:
 #ifndef _WIN32
   FRIEND_TEST(UserInfo, initFromSudo);
@@ -87,12 +97,6 @@ class UserInfo {
   UserInfo() {}
 
 #ifndef _WIN32
-  struct PasswdEntry;
-
-  /**
-   * Look up the passwd entry for the specified user ID.
-   */
-  static PasswdEntry getPasswdUid(uid_t uid);
 
   /**
    * Populate the UserInfo if getuid() returned a non-root UID.
@@ -127,6 +131,10 @@ class UserInfo {
 };
 
 #ifndef _WIN32
+struct UserInfo::PasswdEntry {
+  struct passwd pwd;
+  std::vector<char> buf;
+};
 /**
  * While EffectiveUserScope exists, the effective user ID and
  * effective group IDs are set to the invoking non-root user.  (But

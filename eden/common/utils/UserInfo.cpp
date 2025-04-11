@@ -9,7 +9,6 @@
 
 #ifndef _WIN32
 #include <grp.h>
-#include <pwd.h>
 #ifdef __linux__
 #include <sys/prctl.h>
 #endif // __linux__
@@ -35,10 +34,6 @@ using std::string;
 namespace facebook::eden {
 
 #ifndef _WIN32
-struct UserInfo::PasswdEntry {
-  struct passwd pwd;
-  std::vector<char> buf;
-};
 
 static void dropToBasicSELinuxPrivileges() {
 #ifdef EDEN_HAVE_SELINUX

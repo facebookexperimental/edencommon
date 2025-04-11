@@ -32,8 +32,10 @@ namespace facebook::eden {
 class FaultInjector;
 
 namespace detail {
+constexpr std::chrono::nanoseconds PROCESS_INFO_CACHE_DEFAULT_EXPIRY =
+    std::chrono::minutes{5};
 class ProcessInfoNode;
-}
+} // namespace detail
 
 /**
  * Represents strong interest in a process info. The info will be available as
@@ -113,12 +115,35 @@ class ProcessInfoCache {
    * without them being referenced or observed.
    */
   explicit ProcessInfoCache(
-      std::chrono::nanoseconds expiry = std::chrono::minutes{5},
+      std::chrono::nanoseconds expiry =
+          detail::PROCESS_INFO_CACHE_DEFAULT_EXPIRY,
       // For testing:
       ThreadLocalCache* threadLocalCache = nullptr,
       Clock* clock = nullptr,
-      ProcessInfo (*readInfo)(pid_t) = nullptr,
+      const std::function<ProcessInfo(pid_t)>& readInfo = nullptr,
       FaultInjector* faultInjector = nullptr);
+
+  /**
+   * Config options passed to makeReadProcessInfoFunc() to customize the
+   * information retrieved from the process by the worker thread.
+   */
+  struct ReadFuncConfig {
+    bool fetchUserInfo;
+    ReadFuncConfig(bool fetchUserInfo = false) : fetchUserInfo(fetchUserInfo) {}
+  };
+  /**
+   * Ctor that allows customizing the data captured for the process info.
+   */
+  explicit ProcessInfoCache(
+      ReadFuncConfig config,
+      std::chrono::nanoseconds expiry =
+          detail::PROCESS_INFO_CACHE_DEFAULT_EXPIRY)
+      : ProcessInfoCache(
+            expiry,
+            nullptr,
+            nullptr,
+            makeReadProcessInfoFunc(config),
+            nullptr) {}
 
   ~ProcessInfoCache();
 
@@ -171,6 +196,13 @@ class ProcessInfoCache {
    */
   static std::string cleanProcessCommandline(std::string process);
 
+  /**
+   * Allows customizing the information retrieved from the process by the
+   * ProcessInfoCache on add/lookup.
+   */
+  static std::function<ProcessInfo(pid_t)> makeReadProcessInfoFunc(
+      ReadFuncConfig config = ReadFuncConfig{});
+
  private:
   struct State {
     std::unordered_map<pid_t, std::shared_ptr<detail::ProcessInfoNode>> infos;
@@ -187,12 +219,11 @@ class ProcessInfoCache {
 
   void clearExpired(std::chrono::steady_clock::time_point now, State& state);
   void workerThread();
-  static ProcessInfo readProcessInfo(pid_t pid);
 
   const std::chrono::nanoseconds expiry_;
   ThreadLocalCache& threadLocalCache_;
   Clock& clock_;
-  ProcessInfo (*readInfo_)(pid_t);
+  std::function<ProcessInfo(pid_t)> readInfo_;
   folly::Synchronized<State> state_;
   folly::LifoSem sem_;
   std::thread workerThread_;
