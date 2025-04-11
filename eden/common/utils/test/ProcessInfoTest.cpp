@@ -19,7 +19,8 @@ class ProcessInfoTest : public ::testing::Test {};
 
 TEST_F(ProcessInfoTest, readUserInfoForCurrentProcess) {
   // Test reading user info for the current process
-  auto userInfo = readUserInfo(getpid());
+  auto config = ReadUserInfoConfig{.resolveRootUser = true};
+  auto userInfo = readUserInfo(getpid(), config);
 
   EXPECT_TRUE(userInfo.has_value());
   // Verify that the UID matches the current user's UID
@@ -44,7 +45,7 @@ TEST_F(ProcessInfoTest, readUserInfoForNonExistentProcess) {
 
   // When reading a non-existent process, the function should return
   // a UserInfo with default values
-  auto userInfo = readUserInfo(nonExistentPid);
+  auto userInfo = readUserInfo(nonExistentPid, ReadUserInfoConfig());
 
   EXPECT_FALSE(userInfo.has_value());
 }

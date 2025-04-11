@@ -34,6 +34,13 @@ using ProcessName = std::string;
 using ProcessSimpleName = std::string;
 
 /**
+ * Allows configuring how ProcessUserInfo is read in readUserInfo function
+ */
+struct ReadUserInfoConfig {
+  // Attempt to find the 'real user' if effective user is root
+  bool resolveRootUser = false;
+};
+/**
  * Information collected about the user running the process.
  */
 class ProcessUserInfo {
@@ -98,7 +105,9 @@ ProcessSimpleName readProcessSimpleName(pid_t pid);
  * If the pid is invalid or an error occurs while fetching then we return
  * ProcessUserInfo with default values.
  */
-std::optional<ProcessUserInfo> readUserInfo(pid_t pid);
+std::optional<ProcessUserInfo> readUserInfo(
+    pid_t pid,
+    ReadUserInfoConfig config);
 
 /**
  * Get the parent process ID of the specified process ID, if one exists.

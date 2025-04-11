@@ -128,9 +128,16 @@ class ProcessInfoCache {
    * information retrieved from the process by the worker thread.
    */
   struct ReadFuncConfig {
+    // Whether to fetch the user info for the process.
     bool fetchUserInfo;
-    ReadFuncConfig(bool fetchUserInfo = false) : fetchUserInfo(fetchUserInfo) {}
+    ReadUserInfoConfig readUserInfoConfig;
+    ReadFuncConfig(
+        bool fetchUserInfo = false,
+        ReadUserInfoConfig readUserInfoConfig = ReadUserInfoConfig())
+        : fetchUserInfo(fetchUserInfo),
+          readUserInfoConfig(readUserInfoConfig) {}
   };
+
   /**
    * Ctor that allows customizing the data captured for the process info.
    */

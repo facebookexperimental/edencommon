@@ -414,12 +414,13 @@ std::optional<ProcessName> ProcessInfoCache::getProcessName(pid_t pid) {
 
 /* static*/ std::function<ProcessInfo(pid_t)>
 ProcessInfoCache::makeReadProcessInfoFunc(ReadFuncConfig config) {
-  return [fetchUserInfo = config.fetchUserInfo](pid_t pid) {
+  return [config](pid_t pid) {
     return ProcessInfo{
         getParentProcessId(pid).value_or(0),
         readProcessName(pid),
         readProcessSimpleName(pid),
-        fetchUserInfo ? readUserInfo(pid) : std::nullopt};
+        config.fetchUserInfo ? readUserInfo(pid, config.readUserInfoConfig)
+                             : std::nullopt};
   };
 }
 

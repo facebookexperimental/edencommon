@@ -435,14 +435,18 @@ std::string ProcessUserInfo::uidToUsername(uid_t uid) {
 #endif
 }
 
-std::optional<ProcessUserInfo> readUserInfo(pid_t pid) {
+std::optional<ProcessUserInfo> readUserInfo(
+    pid_t pid,
+    ReadUserInfoConfig config) {
 #ifdef __APPLE__
   // Not implemented
   (void)pid;
+  (void)config;
   return std::nullopt;
 #elif _WIN32
   // Not implemented
   (void)pid;
+  (void)config;
   return std::nullopt;
 #else
   // Linux
@@ -462,7 +466,7 @@ std::optional<ProcessUserInfo> readUserInfo(pid_t pid) {
     }
     userInfo->ruid = status->uid;
 
-  } while (status->pid != 1 && status->uid == 0);
+  } while (status->pid != 1 && status->uid == 0 && config.resolveRootUser);
   return userInfo;
 #endif
 }
