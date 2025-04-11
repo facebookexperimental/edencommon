@@ -118,7 +118,7 @@ struct Fixture : ::testing::Test, ProcessInfoCache::ThreadLocalCache {
 Fixture* Fixture::ThisHolder::this_ = nullptr;
 
 TEST_F(Fixture, lookup_expires) {
-  (*infos.wlock())[10] = {0, "watchman", "watchman", ProcessUserInfo()};
+  (*infos.wlock())[10] = {0, "watchman", "watchman", std::nullopt};
   auto lookup = pic.lookup(10);
   EXPECT_EQ("watchman", lookup.get().name);
 
@@ -126,12 +126,12 @@ TEST_F(Fixture, lookup_expires) {
 
   // For the info to expire, we either need to add some new pids and trip the
   // water level check, or call getAllProcessInfos.
-  (*infos.wlock())[11] = {0, "new", "new", ProcessUserInfo()};
-  (*infos.wlock())[12] = {0, "newer", "newer", ProcessUserInfo()};
+  (*infos.wlock())[11] = {0, "new", "new", std::nullopt};
+  (*infos.wlock())[12] = {0, "newer", "newer", std::nullopt};
   EXPECT_EQ("new", pic.lookup(11).get().name);
   EXPECT_EQ("newer", pic.lookup(12).get().name);
 
-  (*infos.wlock())[10] = {0, "edenfs", "edenfs", ProcessUserInfo()};
+  (*infos.wlock())[10] = {0, "edenfs", "edenfs", std::nullopt};
   EXPECT_EQ("edenfs", pic.lookup(10).get().name);
 
   // But the old lookup should still have the old info.

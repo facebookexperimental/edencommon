@@ -27,6 +27,10 @@ TEST_F(ProcessInfoTest, readUserInfoForCurrentProcess) {
   EXPECT_EQ(userInfo->euid, getuid());
 
   // For a normal user process, sudoUser should be nullopt
+  auto username = getlogin();
+  if (username != nullptr) {
+    EXPECT_EQ(userInfo->getRealUsername(), username);
+  }
   if (getuid() == 0) {
     EXPECT_NE(userInfo->ruid, userInfo->euid);
   } else {

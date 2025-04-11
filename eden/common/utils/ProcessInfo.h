@@ -36,10 +36,35 @@ using ProcessSimpleName = std::string;
 /**
  * Information collected about the user running the process.
  */
-struct ProcessUserInfo {
+class ProcessUserInfo {
+ public:
   uid_t ruid;
   uid_t euid;
+  ProcessUserInfo(uid_t ruid, uid_t euid) : ruid(ruid), euid(euid) {}
+
   static std::string uidToUsername(uid_t uid);
+
+  std::string getRealUsername() {
+    if (realUsername_.empty()) {
+      realUsername_ = uidToUsername(ruid);
+    }
+    return realUsername_;
+  }
+
+  std::string getEffectiveUsername() {
+    if (effectiveUsername_.empty()) {
+      if (ruid == euid) {
+        effectiveUsername_ = getRealUsername();
+      } else {
+        effectiveUsername_ = uidToUsername(euid);
+      }
+    }
+    return effectiveUsername_;
+  }
+
+ private:
+  std::string realUsername_;
+  std::string effectiveUsername_;
 };
 
 /**
