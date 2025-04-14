@@ -196,7 +196,16 @@ TEST(ProcessInfoCache, fetchUserInfo) {
     ProcessInfoCache processInfoCache =
         ProcessInfoCache(ProcessInfoCache::ReadFuncConfig(true));
     auto info = processInfoCache.lookup(getpid());
+#ifdef __APPLE__
+    // not implemented
+    EXPECT_FALSE(info.get().userInfo.has_value());
+#elif _WIN32
+    // not implemented
+    EXPECT_FALSE(info.get().userInfo.has_value());
+#else
+    // LINUX
     EXPECT_TRUE(info.get().userInfo.has_value());
+#endif
   }
 }
 
