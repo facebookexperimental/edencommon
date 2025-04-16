@@ -1382,4 +1382,25 @@ TEST(PathFuncs, move_or_copy) {
   }
 }
 
+TEST(PathFuncs, substr) {
+  RelativePathPiece base{"root/bar/baz"};
+  RelativePathPiece root{"root"};
+  RelativePathPiece sub{"bar/baz"};
+  RelativePathPiece empty{""};
+
+  EXPECT_EQ(base.substr(0), base);
+  EXPECT_THROW(base.substr(20), std::out_of_range);
+  EXPECT_EQ(base.substr(root.view().size()), sub);
+  EXPECT_EQ(base.substr(root.view().size() + 1), sub);
+  EXPECT_EQ(base.substr(1), RelativePathPiece{"oot/bar/baz"});
+  EXPECT_EQ(base.substr(12), empty);
+  EXPECT_EQ(empty.substr(0), empty);
+
+  if (folly::kIsWindows) {
+    RelativePathPiece winBase{"root\\bar/baz"};
+    EXPECT_EQ(winBase.substr(root.view().size()), sub);
+    EXPECT_EQ(winBase.substr(root.view().size() + 1), sub);
+  }
+}
+
 } // namespace facebook::eden

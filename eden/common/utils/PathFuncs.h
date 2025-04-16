@@ -1504,6 +1504,30 @@ class RelativePathBase : public ComposedPathBase<
   bool isParentDirOf(const RelativePathPiece& other) const {
     return other.findParent(*this) != other.allPaths().end();
   }
+
+  /** Returns the substring of this path.
+   * If the new substring ends on a dir separator, remove that as well
+   * to satisfy RelativePathSanityCheck
+   *
+   * It is up to the caller to verify the position passed in, this function does
+   * not check if the path exists or not
+   *
+   * For example,
+   * calling substr() on "foo/bar/baz" will yield the following results:
+   * substr(0) => foo/bar/baz
+   * substr(20) => throws std::out_of_range exception
+   * substr(3) => bar/baz
+   * substr(4) => bar/baz
+   * substr(1) => oo/bar/baz
+   */
+  RelativePathPiece substr(size_t pos) const {
+    string_view substr_result = this->path_.substr(pos);
+    if (substr_result.size() > 0 && isDirSeparator(substr_result[0])) {
+      return RelativePathPiece{substr_result.substr(1)};
+    }
+    return RelativePathPiece{substr_result};
+  }
+
 }; // namespace detail
 
 /// Asserts that val is well formed absolute path
