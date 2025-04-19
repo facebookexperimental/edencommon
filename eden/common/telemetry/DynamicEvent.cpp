@@ -70,4 +70,18 @@ void DynamicEvent::addDouble(std::string name, double value) {
   }
 }
 
+void DynamicEvent::addStringVec(
+    std::string name,
+    std::vector<std::string> value) {
+  for (auto& vref : value) {
+    validateUtf8(vref);
+  }
+  auto [iter, inserted] =
+      stringVecs_.emplace(std::move(name), std::move(value));
+  if (!inserted) {
+    throw_<std::logic_error>(
+        "Attempted to insert duplicate string vector: ", iter->first);
+  }
+}
+
 } // namespace facebook::eden

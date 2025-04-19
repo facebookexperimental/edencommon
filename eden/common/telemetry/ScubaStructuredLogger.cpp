@@ -6,10 +6,10 @@
  */
 
 #include "eden/common/telemetry/ScubaStructuredLogger.h"
+#include "eden/common/telemetry/SubprocessScribeLogger.h"
 
 #include <folly/json/json.h>
-
-#include "eden/common/telemetry/SubprocessScribeLogger.h"
+#include "folly/json/DynamicConverter.h"
 
 namespace facebook::eden {
 
@@ -48,6 +48,12 @@ void ScubaStructuredLogger::logDynamicEvent(DynamicEvent event) {
   const auto& doubleMap = event.getDoubleMap();
   if (!doubleMap.empty()) {
     document["double"] = dynamicMap(doubleMap);
+  }
+
+  const auto& stringVecMap = event.getStringVecMap();
+  if (!stringVecMap.empty()) {
+    // Special case handling for array
+    document["normvector"] = folly::toDynamic(stringVecMap);
   }
 
   scribeLogger_->log(folly::toJson(document));

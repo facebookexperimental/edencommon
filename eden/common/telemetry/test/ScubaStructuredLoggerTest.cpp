@@ -56,6 +56,21 @@ struct TypelessTestLogEvent : public TypelessTestEvent {
   }
 };
 
+struct VectorTestLogEvent : public TestEvent {
+  std::vector<std::string> strvec;
+
+  explicit VectorTestLogEvent(std::vector<std::string> strvec)
+      : strvec(std::move(strvec)) {}
+
+  void populate(DynamicEvent& event) const override {
+    event.addStringVec("strvec", strvec);
+  }
+
+  char const* getType() const override {
+    return "vector_test_event";
+  }
+};
+
 struct ScubaStructuredLoggerTest : public ::testing::Test {
   std::shared_ptr<TestScribeLogger> scribe{
       std::make_shared<TestScribeLogger>()};
@@ -137,4 +152,37 @@ TEST_F(
       keysOf(normals),
       UnorderedElementsAre("str", "user", "host", "os", "osver"));
 #endif
+}
+
+TEST_F(ScubaStructuredLoggerTest, empty_stringvec_test) {
+  VectorTestLogEvent event({});
+  logger.logEvent(event);
+  EXPECT_EQ(1, scribe->lines.size());
+  const auto& line = scribe->lines[0];
+  auto doc = folly::parseJson(line);
+  EXPECT_TRUE(doc.isObject());
+  EXPECT_THAT(keysOf(doc), UnorderedElementsAre("int", "normal", "normvector"));
+
+  auto normvecs = doc["normvector"];
+  EXPECT_TRUE(normvecs.isObject());
+  EXPECT_THAT(keysOf(normvecs), UnorderedElementsAre("strvec"));
+  EXPECT_TRUE(normvecs["strvec"].empty());
+}
+
+TEST_F(ScubaStructuredLoggerTest, stringvec_test) {
+  VectorTestLogEvent event({"a", "b", "c"});
+  logger.logEvent(event);
+  EXPECT_EQ(1, scribe->lines.size());
+  const auto& line = scribe->lines[0];
+  auto doc = folly::parseJson(line);
+  EXPECT_TRUE(doc.isObject());
+  EXPECT_THAT(keysOf(doc), UnorderedElementsAre("int", "normal", "normvector"));
+
+  auto normvecs = doc["normvector"];
+  EXPECT_TRUE(normvecs.isObject());
+  EXPECT_THAT(keysOf(normvecs), UnorderedElementsAre("strvec"));
+  EXPECT_FALSE(normvecs["strvec"].empty());
+  EXPECT_EQ(normvecs["strvec"][0].asString(), "a");
+  EXPECT_EQ(normvecs["strvec"][1].asString(), "b");
+  EXPECT_EQ(normvecs["strvec"][2].asString(), "c");
 }

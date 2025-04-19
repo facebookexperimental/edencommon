@@ -83,4 +83,13 @@ TEST(DynamicEventTest, ValidateUtf8) {
   EXPECT_THROW(
       event.addString("test_invalid_utf8", "\xFF\xFF"), std::exception);
 }
+TEST(DynamicEventTest, AddStringVec) {
+  DynamicEvent event;
+  std::vector<std::string> test = {"a", "b", "c"};
+  event.addStringVec("stringvec", test);
+  const auto& stringVecMap = event.getStringVecMap();
+  EXPECT_EQ(stringVecMap.size(), 1);
+  EXPECT_EQ(stringVecMap.at("stringvec"), test);
+  EXPECT_THROW(event.addStringVec("stringvec", {"qq"}), std::logic_error);
+}
 } // namespace facebook::eden
