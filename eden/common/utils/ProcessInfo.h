@@ -49,7 +49,16 @@ class ProcessUserInfo {
  public:
   uid_t ruid;
   uid_t euid;
-  ProcessUserInfo(uid_t ruid, uid_t euid) : ruid(ruid), euid(euid) {}
+  ProcessUserInfo(
+      uid_t ruid,
+      uid_t euid,
+      // For testing
+      std::string realUsername = "",
+      std::string effectiveUsername = "")
+      : ruid(ruid),
+        euid(euid),
+        realUsername_(std::move(realUsername)),
+        effectiveUsername_(std::move(effectiveUsername)) {}
 
   static std::string uidToUsername(uid_t uid);
 
