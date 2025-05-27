@@ -42,8 +42,4 @@ std::string getOperatingSystemArchitecture();
  * exception on failure.
  */
 std::string getHostname();
-
-std::unordered_map<std::string, std::variant<std::string, uint64_t>>
-getFbInfo();
-
 } // namespace facebook::eden

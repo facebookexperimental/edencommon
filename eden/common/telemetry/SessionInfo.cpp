@@ -6,11 +6,10 @@
  */
 
 #include "eden/common/telemetry/SessionInfo.h"
-#include <folly/Conv.h>
 #include <folly/Exception.h>
 #include "eden/common/eden-config.h"
 #ifdef LOGGER_FB_SESSION_INFO
-#include "devx_www/cross_env_session_id_cpp/src/lib.h"
+#include "eden/common/telemetry/facebook/FacebookSessionInfo.h"
 #endif
 
 #if defined(__linux__) || defined(__APPLE__)
@@ -23,10 +22,6 @@
 #endif
 
 #include <cstdlib>
-
-#ifdef EDEN_COMMON_HAVE_DEVSERVER_FINGERPRINT
-#include "common/rust/devserver_fingerprint/ffi/src/lib.rs.h" // @manual
-#endif
 #include "eden/common/utils/SysctlUtil.h"
 
 namespace {
@@ -64,7 +59,9 @@ SessionInfo makeSessionInfo(
 #if defined(__APPLE__)
   env.systemArchitecture = getOperatingSystemArchitecture();
 #endif
+#ifdef LOGGER_FB_SESSION_INFO
   env.fbInfo = getFbInfo();
+#endif
   return env;
 }
 
@@ -116,35 +113,6 @@ std::string getHostname() {
   hostname[kHostNameMax] = 0;
 
   return hostname;
-}
-
-std::unordered_map<std::string, std::variant<std::string, uint64_t>>
-getFbInfo() {
-  std::unordered_map<std::string, std::variant<std::string, uint64_t>> info;
-
-#ifdef LOGGER_FB_SESSION_INFO
-  auto str = std::getenv("SANDCASTLE_INSTANCE_ID");
-  if (str) {
-    try {
-      uint64_t id = folly::to<uint64_t>(str);
-      info["sandcastle_instance_id"] = id;
-    } catch (const folly::ConversionError&) {
-    }
-  }
-
-  if (auto alias = std::getenv("SANDCASTLE_ALIAS")) {
-    info["sandcastle_alias"] = alias;
-  }
-
-  info["ces_id"] = std::string(devx_www::cross_environment_session_id::get());
-#endif
-
-#ifdef EDEN_COMMON_HAVE_DEVSERVER_FINGERPRINT
-  info["system_fingerprint"] =
-      std::string(devserver_fingerprint::fingerprint());
-#endif
-
-  return info;
 }
 
 } // namespace facebook::eden
