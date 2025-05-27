@@ -132,6 +132,10 @@ getFbInfo() {
     }
   }
 
+  if (auto alias = std::getenv("SANDCASTLE_ALIAS")) {
+    info["sandcastle_alias"] = alias;
+  }
+
   info["ces_id"] = std::string(devx_www::cross_environment_session_id::get());
 #endif
 
