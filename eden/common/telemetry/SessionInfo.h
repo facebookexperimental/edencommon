@@ -8,7 +8,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <string>
 
 #include "eden/common/utils/UserInfo.h"
@@ -18,15 +17,13 @@ namespace facebook::eden {
 struct SessionInfo {
   std::string username;
   std::string hostname;
-  std::optional<uint64_t> ciInstanceId;
   std::string os;
   std::string osVersion;
   std::string appVersion;
-  std::string crossEnvSessionId;
-  std::string systemFingerprint;
 #ifdef __APPLE__
   std::string systemArchitecture;
 #endif
+  std::unordered_map<std::string, std::variant<std::string, uint64_t>> fbInfo;
 };
 
 SessionInfo makeSessionInfo(
@@ -46,22 +43,7 @@ std::string getOperatingSystemArchitecture();
  */
 std::string getHostname();
 
-/**
- * Return the best guess of CI instance id from the environment,
- * or return empty if CI instance id is unknown.
- */
-std::optional<uint64_t> getCiInstanceId();
-
-/**
- * Returns the Cross Environment Session Id, which uniquely identifies the host.
- * This function returns an empty string if the Cross Environment Session Id is
- * not unknown.
- */
-std::string getCrossEnvSessionId();
-
-/*
- * Returns the system fingerprint (the top level digest of the system metadata)
- */
-std::string getSystemFingerprint();
+std::unordered_map<std::string, std::variant<std::string, uint64_t>>
+getFbInfo();
 
 } // namespace facebook::eden

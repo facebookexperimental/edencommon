@@ -58,15 +58,13 @@ SessionInfo makeSessionInfo(
   SessionInfo env;
   env.username = userInfo.getUsername();
   env.hostname = std::move(hostname);
-  env.ciInstanceId = getCiInstanceId();
   env.os = getOperatingSystemName();
   env.osVersion = getOperatingSystemVersion();
   env.appVersion = std::move(appVersion);
-  env.crossEnvSessionId = getCrossEnvSessionId();
-  env.systemFingerprint = getSystemFingerprint();
 #if defined(__APPLE__)
   env.systemArchitecture = getOperatingSystemArchitecture();
 #endif
+  env.fbInfo = getFbInfo();
   return env;
 }
 
@@ -120,37 +118,29 @@ std::string getHostname() {
   return hostname;
 }
 
-std::optional<uint64_t> getCiInstanceId() {
+std::unordered_map<std::string, std::variant<std::string, uint64_t>>
+getFbInfo() {
+  std::unordered_map<std::string, std::variant<std::string, uint64_t>> info;
+
 #ifdef LOGGER_FB_SESSION_INFO
   auto str = std::getenv("SANDCASTLE_INSTANCE_ID");
-  if (!str) {
-    return std::nullopt;
+  if (str) {
+    try {
+      uint64_t id = folly::to<uint64_t>(str);
+      info["sandcastle_instance_id"] = id;
+    } catch (const folly::ConversionError&) {
+    }
   }
-  try {
-    uint64_t id = folly::to<uint64_t>(str);
-    return std::make_optional(id);
-  } catch (const folly::ConversionError&) {
-    return std::nullopt;
-  }
-#else
-  return std::nullopt;
-#endif
-}
 
-std::string getCrossEnvSessionId() {
-#ifdef LOGGER_FB_SESSION_INFO
-  return std::string(devx_www::cross_environment_session_id::get());
-#else
-  return std::string();
+  info["ces_id"] = std::string(devx_www::cross_environment_session_id::get());
 #endif
-}
 
-std::string getSystemFingerprint() {
 #ifdef EDEN_COMMON_HAVE_DEVSERVER_FINGERPRINT
-  return std::string(devserver_fingerprint::fingerprint());
-#else
-  return std::string();
+  info["system_fingerprint"] =
+      std::string(devserver_fingerprint::fingerprint());
 #endif
+
+  return info;
 }
 
 } // namespace facebook::eden
