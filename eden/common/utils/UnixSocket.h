@@ -116,7 +116,7 @@ class UnixSocket : public folly::DelayedDestruction,
     virtual void socketClosed() noexcept = 0;
 
     /**
-     * receiveError() wil be invoked when an error occurs on the socket.
+     * receiveError() will be invoked when an error occurs on the socket.
      *
      * The socket will be in an error state once receiveError() is invoked, and
      * no further sends or receives will be possible on the socket.
