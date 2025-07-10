@@ -621,15 +621,15 @@ jobs:
        path: ${{ steps.paths.outputs.fb303_INSTALL }}
        key: ${{ steps.paths.outputs.fb303_CACHE_KEY }}-install
     - name: Build edencommon
-      run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --src-dir=. edencommon  --project-install-prefix edencommon:/usr/local
+      run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --src-dir=. edencommon --project-install-prefix edencommon:/usr/local
     - name: Copy artifacts
-      run: python3 build/fbcode_builder/getdeps.py --allow-system-packages fixup-dyn-deps --strip --src-dir=. edencommon _artifacts/linux  --project-install-prefix edencommon:/usr/local --final-install-prefix /usr/local
+      run: python3 build/fbcode_builder/getdeps.py --allow-system-packages fixup-dyn-deps --strip --src-dir=. edencommon _artifacts/linux --project-install-prefix edencommon:/usr/local --final-install-prefix /usr/local
     - uses: actions/upload-artifact@v4
       with:
         name: edencommon
         path: _artifacts
     - name: Test edencommon
-      run: python3 build/fbcode_builder/getdeps.py --allow-system-packages test --src-dir=. edencommon  --project-install-prefix edencommon:/usr/local
+      run: python3 build/fbcode_builder/getdeps.py --allow-system-packages test --src-dir=. edencommon --project-install-prefix edencommon:/usr/local
     - name: Show disk space at end
       if: always()
       run: df -h
