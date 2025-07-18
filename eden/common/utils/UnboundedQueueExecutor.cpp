@@ -12,8 +12,6 @@
 #include <folly/executors/task_queue/UnboundedBlockingQueue.h>
 #include <folly/executors/thread_factory/NamedThreadFactory.h>
 
-#include "eden/common/eden-config.h"
-
 #ifdef EDEN_COMMON_HAVE_SERVER_OBSERVER
 #include "common/fb303/cpp/ThreadPoolExecutorCounters.h" // @manual
 #endif
