@@ -1982,15 +1982,6 @@ size_t hash_value(
   }
 }
 
-// Streaming operators for logging and printing
-template <typename A>
-std::ostream& operator<<(
-    std::ostream& stream,
-    const detail::AbsolutePathBase<A>& a) {
-  stream << a.view();
-  return stream;
-}
-
 } // namespace detail
 
 // I'm not really a fan of operator overloading, but these
