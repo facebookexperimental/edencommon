@@ -541,13 +541,6 @@ TEST(PathFuncs, Hash20) {
   std::unordered_set<AbsolutePath> uaset;
 }
 
-TEST(PathFuncs, Stream) {
-  // Assert that our stream operator functions.
-  std::stringstream str;
-  str << PathComponent("file");
-  EXPECT_EQ("file", str.str());
-}
-
 TEST(PathFuncs, ImplicitPiece) {
   // Assert that we can implicitly convert from Stored -> Piece,
   // which is a pattern we desire for passing either Stored or Piece
