@@ -1986,14 +1986,6 @@ size_t hash_value(
 template <typename A>
 std::ostream& operator<<(
     std::ostream& stream,
-    const detail::RelativePathBase<A>& a) {
-  stream << a.view();
-  return stream;
-}
-
-template <typename A>
-std::ostream& operator<<(
-    std::ostream& stream,
     const detail::AbsolutePathBase<A>& a) {
   stream << a.view();
   return stream;
