@@ -7,8 +7,8 @@
 
 #pragma once
 
+#include <fmt/format.h>
 #include <folly/Portability.h>
-#include <ostream>
 
 namespace facebook::eden {
 enum class CaseSensitivity : bool {
@@ -19,7 +19,16 @@ enum class CaseSensitivity : bool {
 constexpr CaseSensitivity kPathMapDefaultCaseSensitive =
     static_cast<CaseSensitivity>(folly::kIsLinux);
 
-inline std::ostream& operator<<(std::ostream& os, CaseSensitivity cs) {
-  return os << (cs == CaseSensitivity::Sensitive ? "Sensitive" : "Insensitive");
-}
 } // namespace facebook::eden
+
+template <>
+struct fmt::formatter<facebook::eden::CaseSensitivity>
+    : formatter<string_view> {
+  template <typename Context>
+  auto format(const facebook::eden::CaseSensitivity& cs, Context& ctx) const {
+    return formatter<string_view>::format(
+        cs == facebook::eden::CaseSensitivity::Sensitive ? "Sensitive"
+                                                         : "Insensitive",
+        ctx);
+  }
+};
