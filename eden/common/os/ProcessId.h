@@ -153,8 +153,6 @@ class OptionalProcessId {
   uint32_t pid_ = kUnset;
 };
 
-std::ostream& operator<<(std::ostream& os, OptionalProcessId pid);
-
 } // namespace facebook::eden
 
 template <>

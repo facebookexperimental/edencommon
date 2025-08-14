@@ -8,7 +8,6 @@
 #include "eden/common/os/ProcessId.h"
 
 #include <optional>
-#include <ostream>
 #include <type_traits>
 
 #include <folly/system/Pid.h>
@@ -61,10 +60,6 @@ ProcessId ProcessId::current() noexcept {
 
 void OptionalProcessId::throwBadAccess() {
   throw std::bad_optional_access{};
-}
-
-std::ostream& operator<<(std::ostream& os, OptionalProcessId pid) {
-  return pid ? (os << pid.raw()) : (os << -1);
 }
 
 } // namespace facebook::eden

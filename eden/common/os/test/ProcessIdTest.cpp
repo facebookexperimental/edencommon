@@ -81,18 +81,6 @@ TEST(OptionalProcessId, can_be_key_in_unordered_map) {
   EXPECT_EQ(2, map.size());
 }
 
-TEST(OptionalProcessId, ostream_format_empty) {
-  std::ostringstream os;
-  os << OptionalProcessId{};
-  EXPECT_EQ("-1", os.str());
-}
-
-TEST(OptionalProcessId, ostream_format) {
-  std::ostringstream os;
-  os << OptionalProcessId{ProcessId{1000}};
-  EXPECT_EQ("1000", os.str());
-}
-
 TEST(OptionalProcessId, fmt_format) {
   EXPECT_EQ("0", fmt::to_string(ProcessId{0}));
   EXPECT_EQ("1000", fmt::to_string(ProcessId{1000}));
