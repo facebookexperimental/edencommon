@@ -161,13 +161,6 @@ class OptionSet {
     return result;
   }
 
-  template <typename... A>
-  friend std::basic_ostream<A...>& operator<<(
-      std::basic_ostream<A...>& out,
-      const OptionSet& opts) {
-    return out << opts.format();
-  }
-
   Derived& operator|=(Derived that) {
     value_ |= that.value_;
     return static_cast<Derived&>(*this);
