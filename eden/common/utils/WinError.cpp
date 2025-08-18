@@ -73,7 +73,7 @@ const std::error_category& HResultErrorCategory::get() noexcept {
 }
 
 HRESULT exceptionToHResult(const std::exception& ex) noexcept {
-  XLOG(ERR) << folly::exceptionStr(ex);
+  XLOG(ERR, folly::exceptionStr(ex));
   if (auto e = dynamic_cast<const std::system_error*>(&ex)) {
     auto code = e->code();
     if (code.category() == HResultErrorCategory::get()) {

@@ -346,7 +346,7 @@ PathMap<std::pair<std::optional<A>, std::optional<B>>, P> collatePathMaps(
   if (a.getCaseSensitivity() == b.getCaseSensitivity()) {
     caseSensitivity = a.getCaseSensitivity();
   } else {
-    XLOG(WARN) << "Comparing path maps with disjoint case sensitivity";
+    XLOG(WARN, "Comparing path maps with disjoint case sensitivity");
   }
 
   auto result = PathMap<std::pair<std::optional<A>, std::optional<B>>, P>{

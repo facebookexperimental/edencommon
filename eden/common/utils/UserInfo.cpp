@@ -39,7 +39,7 @@ static void dropToBasicSELinuxPrivileges() {
 #ifdef EDEN_HAVE_SELINUX
   const char* baseContext = "user_u:base_r:base_t";
 
-  XLOG(DBG2) << "Dropping SELinux context..." << [&] {
+  XLOGF(DBG2, "Dropping SELinux context...{}", [&] {
     char* con;
     if (0 == getcon(&con)) {
       SCOPE_SUCCESS {
@@ -48,12 +48,12 @@ static void dropToBasicSELinuxPrivileges() {
       return " prior context was: " + string(con);
     }
     return string();
-  }();
+  }());
 
   // Drop to basic user SELinux privileges.
   // This is required in order to gdb into edenfs without sudo.
   if (setcon(const_cast<char*>(baseContext))) {
-    XLOG(DBG3) << "setcon() failed when dropping SELinux context";
+    XLOG(DBG3, "setcon() failed when dropping SELinux context");
   }
 #endif // EDEN_HAVE_SELINUX
 }

@@ -356,7 +356,7 @@ void UnixSocket::send(Message&& message, SendCallback* callback) noexcept {
     queueEntry = createSendQueueEntry(std::move(message), callback);
   } catch (...) {
     auto ew = exception_wrapper{std::current_exception()};
-    XLOG(ERR) << "error allocating a send queue entry: " << ew;
+    XLOGF(ERR, "error allocating a send queue entry: {}", ew.what());
     callback->sendError(make_exception_wrapper<std::runtime_error>(
         "cannot send a message on a closed UnixSocket"));
     return;
@@ -383,7 +383,7 @@ void UnixSocket::send(Message&& message, SendCallback* callback) noexcept {
       trySend();
     } catch (...) {
       auto ew = exception_wrapper{std::current_exception()};
-      XLOG(ERR) << "unix socket error during send(): " << ew;
+      XLOGF(ERR, "unix socket error during send(): {}", ew.what());
       socketError(std::move(ew));
     }
   }
@@ -541,9 +541,12 @@ bool UnixSocket::trySendMessage(SendQueueEntry* entry) {
     if (isFirstSend) {
       filesToSend = initializeFirstControlMsg(controlBuf, &msg, entry);
     }
-    XLOG(DBG9) << "trySendMessage(): iovIndex=" << entry->iovIndex
-               << " iovCount=" << entry->iovCount
-               << ", controlLength=" << msg.msg_controllen;
+    XLOGF(
+        DBG9,
+        "trySendMessage(): iovIndex={}, iovCount={}, controlLength={}",
+        entry->iovIndex,
+        entry->iovCount,
+        msg.msg_controllen);
   } else {
     // We finished sending the normal message data, but still have more
     // file descriptors to send.  (We had more FDs than could fit in a single
@@ -562,7 +565,7 @@ bool UnixSocket::trySendMessage(SendQueueEntry* entry) {
     msg.msg_iov = entry->iov;
     msg.msg_iovlen = 1;
     filesToSend = initializeAdditionalControlMsg(controlBuf, &msg, entry);
-    XLOG(DBG9) << "trySendMessage(): controlLength=" << msg.msg_controllen;
+    XLOGF(DBG9, "trySendMessage(): controlLength={}", msg.msg_controllen);
   }
 
   // Now call sendmsg.
@@ -571,8 +574,7 @@ bool UnixSocket::trySendMessage(SendQueueEntry* entry) {
   // has no effect at all on sendmsg().  Instead, the socket must be
   // in non-blocking mode if we want non-blocking behavior!
   auto bytesSent = sendmsg(socket_.fd(), &msg, MSG_DONTWAIT);
-  XLOG(DBG9) << "sendmsg() returned " << bytesSent
-             << ", files sent: " << filesToSend;
+  XLOGF(DBG9, "sendmsg() returned {}, files sent: {}", bytesSent, filesToSend);
   if (bytesSent < 0) {
     if (errno == EAGAIN) {
       return false;
@@ -771,16 +773,25 @@ bool UnixSocket::tryReceiveOne() {
 void UnixSocket::processReceivedControlData(struct msghdr* msg) {
   struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg);
   while (cmsg) {
-    XLOG(DBG9) << "received control msg: level=" << cmsg->cmsg_level
-               << ", type=" << cmsg->cmsg_type;
+    XLOGF(
+        DBG9,
+        "received control msg: level={}, type={}",
+        cmsg->cmsg_level,
+        cmsg->cmsg_type);
     if (cmsg->cmsg_level != SOL_SOCKET) {
-      XLOG(WARN) << "unexpected control message level on unix socket: ("
-                 << cmsg->cmsg_level << ", " << cmsg->cmsg_type << ")";
+      XLOGF(
+          WARN,
+          "unexpected control message level on unix socket: ({}, {})",
+          cmsg->cmsg_level,
+          cmsg->cmsg_type);
     } else if (cmsg->cmsg_type == SCM_RIGHTS) {
       processReceivedFiles(cmsg);
     } else {
-      XLOG(WARN) << "unexpected control message type on unix socket: ("
-                 << cmsg->cmsg_level << ", " << cmsg->cmsg_type << ")";
+      XLOGF(
+          WARN,
+          "unexpected control message type on unix socket: ({}, {})",
+          cmsg->cmsg_level,
+          cmsg->cmsg_type);
     }
 
     cmsg = CMSG_NXTHDR(msg, cmsg);
@@ -831,8 +842,11 @@ ssize_t UnixSocket::callRecvMsg(MutableByteRange buf) {
 
   auto bytesReceived =
       recvmsg(socket_.fd(), &msg, MSG_CMSG_CLOEXEC | MSG_DONTWAIT);
-  XLOG(DBG9) << "recvmsg(): got " << bytesReceived << " data bytes, "
-             << msg.msg_controllen << " control bytes";
+  XLOGF(
+      DBG9,
+      "recvmsg(): got {} data bytes, {} control bytes",
+      bytesReceived,
+      msg.msg_controllen);
   if (bytesReceived < 0) {
     if (errno == EAGAIN) {
       return -1;
@@ -1016,13 +1030,13 @@ void UnixSocket::handlerReady(uint16_t events) noexcept {
     }
   } catch (...) {
     auto ew = exception_wrapper{std::current_exception()};
-    XLOG(ERR) << "unix socket I/O handler error: " << ew;
+    XLOGF(ERR, "unix socket I/O handler error: {}", ew.what());
     socketError(std::move(ew));
   }
 }
 
 void UnixSocket::timeoutExpired() noexcept {
-  XLOG(WARN) << "send timeout on unix socket";
+  XLOG(WARN, "send timeout on unix socket");
   socketError(
       folly::makeSystemErrorExplicit(ETIMEDOUT, "send timeout on unix socket"));
 }

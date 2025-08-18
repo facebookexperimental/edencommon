@@ -155,7 +155,7 @@ SpawnedProcess::Environment::asEnviron() const {
     const auto& key = it.first;
     const auto& val = it.second;
 
-    XLOG(DBG6) << "asEnviron " << key << "=" << val;
+    XLOGF(DBG6, "asEnviron {}={}", key, val);
 
     envp[i++] = buf;
 
@@ -195,7 +195,7 @@ std::string SpawnedProcess::Environment::asWin32EnvBlock() const {
     const auto& key = it.first;
     const auto& val = it.second;
 
-    XLOG(DBG6) << "asWin32EnvBlock " << key << "=" << val;
+    XLOGF(DBG6, "asWin32EnvBlock {}={}", key, val);
 
     block.append(key);
     block.push_back('=');
@@ -513,7 +513,7 @@ SpawnedProcess::SpawnedProcess(
       shellCommand.append(folly::shellQuote(word));
     }
 
-    XLOG(DBG6) << "will run : " << shellCommand;
+    XLOGF(DBG6, "will run : {}", shellCommand);
 
     argStrings.clear();
     argStrings.emplace_back("/bin/sh");
@@ -524,7 +524,7 @@ SpawnedProcess::SpawnedProcess(
   std::vector<char*> argv;
   argv.reserve(argStrings.size() + 1);
   for (auto& a : argStrings) {
-    XLOG(DBG6) << "argv[" << argv.size() << "] = " << a;
+    XLOGF(DBG6, "argv[{}] = {}", argv.size(), a);
     argv.push_back(a.data());
   }
   // The argv array is required to be NULL terminated
@@ -538,9 +538,10 @@ SpawnedProcess::SpawnedProcess(
   }
 
   auto envp = options.env_.asEnviron();
-  XLOG(DBG6) << "exec: "
-             << (options.execPath_.has_value() ? options.execPath_->c_str()
-                                               : argv[0]);
+  XLOGF(
+      DBG6,
+      "exec: {}",
+      (options.execPath_.has_value() ? options.execPath_->c_str() : argv[0]));
   auto ret = posix_spawnp(
       &pid_,
       options.execPath_.has_value() ? options.execPath_->c_str() : argv[0],
@@ -720,8 +721,9 @@ SpawnedProcess::SpawnedProcess(
 
 SpawnedProcess::~SpawnedProcess() {
   if (!waited_) {
-    XLOG(FATAL)
-        << "you must call SpawnedProcess.wait() before destroying a SpawnedProcess";
+    XLOG(
+        FATAL,
+        "you must call SpawnedProcess.wait() before destroying a SpawnedProcess");
   }
 }
 
