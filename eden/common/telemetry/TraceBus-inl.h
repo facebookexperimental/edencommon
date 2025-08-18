@@ -114,8 +114,11 @@ template <typename TraceEvent>
 void TraceBus<TraceEvent>::logFullOnce() noexcept {
   folly::call_once(logIfFullFlag_, [&]() noexcept {
     try {
-      XLOG(WARN) << "TraceBus(" << name_ << ") is full; blocking. Is capacity "
-                 << bufferCapacity_ << " sufficient?";
+      XLOGF(
+          WARN,
+          "TraceBus({}) is full; blocking. Is capacity {} sufficient?",
+          name_,
+          bufferCapacity_);
     } catch (std::exception& e) {
       fprintf(
           stderr,
@@ -208,8 +211,11 @@ void TraceBus<TraceEvent>::threadLoop(
         sub->subscriber->observeBatch(begin, end);
       } catch (const std::exception& e) {
         sub->hasThrownException = true;
-        XLOG(ERR) << "Subscription: " << sub->subscriber->name() << " threw "
-                  << e.what() << ", unsubscribing.";
+        XLOGF(
+            ERR,
+            "Subscription: {} threw {}, unsubscribing.",
+            sub->subscriber->name(),
+            e.what());
       }
     }
 

@@ -52,7 +52,7 @@ class DurationScope {
       try {
         updateScope_(*stats_, stopWatch_.elapsed());
       } catch (const std::exception& e) {
-        XLOG(ERR) << "error recording duration: " << e.what();
+        XLOGF(ERR, "error recording duration: {}", e.what());
       }
     }
   }

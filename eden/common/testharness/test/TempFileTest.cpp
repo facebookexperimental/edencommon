@@ -15,7 +15,7 @@ using namespace facebook::eden;
 TEST(TempFile, mktemp) {
   // This mainly just verifies that makeTempFile() and makeTempDir() succeeds
   auto tempfile = makeTempFile();
-  XLOG(INFO) << "temporary file is " << tempfile.path();
+  XLOGF(INFO, "temporary file is {}", tempfile.path().string());
   auto tempdir = makeTempDir();
-  XLOG(INFO) << "temporary dir is " << tempfile.path();
+  XLOGF(INFO, "temporary dir is {}", tempdir.path().string());
 }
