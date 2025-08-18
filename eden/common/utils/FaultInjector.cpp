@@ -35,9 +35,11 @@ FaultInjector::~FaultInjector() {
   // fail them all with an error.
   auto numUnblocked =
       unblockAllImpl(std::runtime_error("FaultInjector destroyed"));
-  XLOG_IF(WARN, numUnblocked > 0)
-      << "FaultInjector destroyed with " << numUnblocked
-      << " blocked check calls still pending";
+  XLOGF_IF(
+      WARN,
+      numUnblocked > 0,
+      "FaultInjector destroyed with {} blocked check calls still pending",
+      numUnblocked);
 }
 
 ImmediateFuture<Unit> FaultInjector::checkAsyncImpl(

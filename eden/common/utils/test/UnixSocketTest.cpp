@@ -10,6 +10,7 @@
 #include "eden/common/utils/UnixSocket.h"
 #include "eden/common/utils/FutureUnixSocket.h"
 
+#include <fmt/format.h>
 #include <folly/Exception.h>
 #include <folly/File.h>
 #include <folly/Random.h>
@@ -69,8 +70,12 @@ struct DataSize {
 };
 
 void testSendDataAndFiles(DataSize dataSize, size_t numFiles) {
-  XLOG(INFO) << "sending " << dataSize.totalSize << " bytes, " << numFiles
-             << " files, with max chunk size of " << dataSize.maxChunkSize;
+  XLOGF(
+      INFO,
+      "sending {} bytes, {} files, with max chunk size of {}",
+      dataSize.totalSize,
+      numFiles,
+      dataSize.maxChunkSize);
 
   auto sockets = createSocketPair();
   EventBase evb;
@@ -87,7 +92,7 @@ void testSendDataAndFiles(DataSize dataSize, size_t numFiles) {
   auto tmpFile = makeTempFile();
   struct stat tmpFileStat;
   if (fstat(tmpFile.fd(), &tmpFileStat) != 0) {
-    ADD_FAILURE() << "fstat failed: " << errnoStr(errno);
+    ADD_FAILURE() << fmt::format("fstat failed: {}", errnoStr(errno));
   }
 
   std::unique_ptr<IOBuf> sendBuf;
@@ -135,9 +140,9 @@ void testSendDataAndFiles(DataSize dataSize, size_t numFiles) {
     files.emplace_back(tmpFile.fd(), /* ownsFd */ false);
   }
   socket1->send(UnixSocket::Message(sendBuf->cloneAsValue(), std::move(files)))
-      .thenValue([](auto&&) { XLOG(DBG3) << "send complete"; })
+      .thenValue([](auto&&) { XLOG(DBG3, "send complete"); })
       .thenError([](const folly::exception_wrapper& ew) {
-        ADD_FAILURE() << "send error: " << ew.what();
+        ADD_FAILURE() << fmt::format("send error: {}", ew.what());
       });
 
   std::optional<UnixSocket::Message> receivedMessage;
@@ -146,7 +151,7 @@ void testSendDataAndFiles(DataSize dataSize, size_t numFiles) {
         receivedMessage = std::move(msg);
       })
       .thenError([](const folly::exception_wrapper& ew) {
-        ADD_FAILURE() << "receive error: " << ew.what();
+        ADD_FAILURE() << fmt::format("receive error: {}", ew.what());
       })
       .ensure([&]() { evb.terminateLoopSoon(); });
 
@@ -169,7 +174,7 @@ void testSendDataAndFiles(DataSize dataSize, size_t numFiles) {
     EXPECT_NE(tmpFile.fd(), msg.files[n].fd());
     struct stat receivedFileStat;
     if (fstat(msg.files[n].fd(), &receivedFileStat) != 0) {
-      ADD_FAILURE() << "fstat failed: " << errnoStr(errno);
+      ADD_FAILURE() << fmt::format("fstat failed: {}", errnoStr(errno));
     }
     EXPECT_EQ(tmpFileStat.st_dev, receivedFileStat.st_dev);
     EXPECT_EQ(tmpFileStat.st_ino, receivedFileStat.st_ino);
@@ -219,7 +224,8 @@ TEST(FutureUnixSocket, receiveQueue) {
               receivedMessages.emplace_back(n, std::move(msg));
             })
             .thenError([n, &evb](const folly::exception_wrapper& ew) {
-              ADD_FAILURE() << "receive " << n << " error: " << ew.what();
+              ADD_FAILURE()
+                  << fmt::format("receive {} error: {}", n, ew.what());
               evb.terminateLoopSoon();
             });
     // Terminate the event loop after the final receive
@@ -232,9 +238,9 @@ TEST(FutureUnixSocket, receiveQueue) {
   for (const auto& msg : sendMessages) {
     auto sendBuf = IOBuf(IOBuf::WRAP_BUFFER, ByteRange{StringPiece{msg}});
     socket1->send(std::move(sendBuf))
-        .thenValue([](auto&&) { XLOG(DBG3) << "send complete"; })
+        .thenValue([](auto&&) { XLOG(DBG3, "send complete"); })
         .thenError([](const folly::exception_wrapper& ew) {
-          ADD_FAILURE() << "send error: " << ew.what();
+          ADD_FAILURE() << fmt::format("send error: {}", ew.what());
         });
   }
 
@@ -242,7 +248,7 @@ TEST(FutureUnixSocket, receiveQueue) {
 
   for (size_t n = 0; n < sendMessages.size(); ++n) {
     if (n >= receivedMessages.size()) {
-      ADD_FAILURE() << "missing message " << n << " from receive queue";
+      ADD_FAILURE() << fmt::format("missing message {} from receive queue", n);
       continue;
     }
     EXPECT_EQ(n, receivedMessages[n].first);
@@ -266,9 +272,9 @@ TEST(FutureUnixSocket, attachEventBase) {
 
     const std::string msgData(100, 'a');
     s1.send(UnixSocket::Message(IOBuf(IOBuf::COPY_BUFFER, msgData)))
-        .thenValue([](auto&&) { XLOG(DBG3) << "send complete"; })
+        .thenValue([](auto&&) { XLOG(DBG3, "send complete"); })
         .thenError([](const folly::exception_wrapper& ew) {
-          ADD_FAILURE() << "send error: " << ew.what();
+          ADD_FAILURE() << fmt::format("send error: {}", ew.what());
         });
     std::optional<UnixSocket::Message> receivedMessage;
     s2.receive(500ms)
@@ -276,7 +282,7 @@ TEST(FutureUnixSocket, attachEventBase) {
           receivedMessage = std::move(msg);
         })
         .thenError([](const folly::exception_wrapper& ew) {
-          ADD_FAILURE() << "receive error: " << ew.what();
+          ADD_FAILURE() << fmt::format("receive error: {}", ew.what());
         })
         .ensure([&]() { evb->terminateLoopSoon(); });
 
