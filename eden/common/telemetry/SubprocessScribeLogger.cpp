@@ -103,7 +103,7 @@ void SubprocessScribeLogger::log(std::string message) {
       return;
     }
     if (state->totalBytes + messageSize > kQueueLimitBytes) {
-      XLOG_EVERY_MS(DBG7, 10000) << "ScribeLogger queue full, dropping message";
+      XLOG_EVERY_MS(DBG7, 10000, "ScribeLogger queue full, dropping message");
       // queue full, dropping!
       return;
     }
@@ -155,8 +155,10 @@ void SubprocessScribeLogger::writerThread() {
     iov[1].iov_len = sizeof(newline);
     if (fd.writevFull(iov.data(), iov.size()).hasException()) {
       // TODO: We could attempt to restart the process here.
-      XLOG(ERR) << "Failed to writev to logger process stdin: "
-                << folly::errnoStr(errno) << ". Giving up!";
+      XLOGF(
+          ERR,
+          "Failed to writev to logger process stdin: {}. Giving up!",
+          folly::errnoStr(errno));
       // Give up. Allow the ScribeLogger class to be destroyed.
       {
         auto state = state_.lock();
