@@ -93,8 +93,9 @@ class HandleBase {
 
   void reset(Type value = Traits::invalidHandleValue()) noexcept {
     if ((handle_ != Traits::invalidHandleValue()) && (handle_ == value)) {
-      XLOG(DFATAL) << "Trying to reset to the same handle - check if there are"
-                      "multiple owners of the handle";
+      XLOG(
+          DFATAL,
+          "Trying to reset to the same handle - check if there are multiple owners of the handle");
     }
     close();
     handle_ = value;

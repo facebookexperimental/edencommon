@@ -49,11 +49,11 @@ ImmediateFuture<Unit> FaultInjector::checkAsyncImpl(
       folly::overload(
           [&](const Unit&) -> RV { return folly::unit; },
           [&](const FaultInjector::Block&) -> RV {
-            XLOG(DBG1) << "block fault hit: " << keyClass << ", " << keyValue;
+            XLOGF(DBG1, "block fault hit: {}, {}", keyClass, keyValue);
             return addBlockedFault(keyClass, keyValue);
           },
           [&](const FaultInjector::Delay& delay) -> RV {
-            XLOG(DBG1) << "delay fault hit: " << keyClass << ", " << keyValue;
+            XLOGF(DBG1, "delay fault hit: {}, {}", keyClass, keyValue);
             if (delay.error.has_value()) {
               return folly::futures::sleep(delay.duration)
                   .defer([error = delay.error.value()](auto&&) {
@@ -63,11 +63,11 @@ ImmediateFuture<Unit> FaultInjector::checkAsyncImpl(
             return folly::futures::sleep(delay.duration);
           },
           [&](const folly::exception_wrapper& error) -> RV {
-            XLOG(DBG1) << "error fault hit: " << keyClass << ", " << keyValue;
+            XLOGF(DBG1, "error fault hit: {}, {}", keyClass, keyValue);
             return RV{std::move(error)};
           },
           [&](const FaultInjector::Kill&) -> RV {
-            XLOG(DBG1) << "kill fault hit: " << keyClass << ", " << keyValue;
+            XLOGF(DBG1, "kill fault hit: {}, {}", keyClass, keyValue);
             abort();
           }),
       behavior);
@@ -93,8 +93,7 @@ void FaultInjector::injectError(
     std::string_view keyValueRegex,
     folly::exception_wrapper error,
     size_t count) {
-  XLOG(INFO) << "injectError(" << keyClass << ", " << keyValueRegex
-             << ", count=" << count << ")";
+  XLOGF(INFO, "injectError({}, {}, count={})", keyClass, keyValueRegex, count);
   injectFault(keyClass, keyValueRegex, error, count);
 }
 
@@ -102,8 +101,7 @@ void FaultInjector::injectBlock(
     std::string_view keyClass,
     std::string_view keyValueRegex,
     size_t count) {
-  XLOG(INFO) << "injectBlock(" << keyClass << ", " << keyValueRegex
-             << ", count=" << count << ")";
+  XLOGF(INFO, "injectBlock({}, {}, count={})", keyClass, keyValueRegex, count);
   injectFault(keyClass, keyValueRegex, Block{}, count);
 }
 
@@ -112,8 +110,7 @@ void FaultInjector::injectDelay(
     std::string_view keyValueRegex,
     std::chrono::milliseconds duration,
     size_t count) {
-  XLOG(INFO) << "injectDelay(" << keyClass << ", " << keyValueRegex
-             << ", count=" << count << ")";
+  XLOGF(INFO, "injectDelay({}, {}, count={})", keyClass, keyValueRegex, count);
   injectFault(keyClass, keyValueRegex, Delay{duration}, count);
 }
 
@@ -121,8 +118,7 @@ void FaultInjector::injectKill(
     std::string_view keyClass,
     std::string_view keyValueRegex,
     size_t count) {
-  XLOG(INFO) << "injectKill(" << keyClass << ", " << keyValueRegex
-             << ", count=" << count << ")";
+  XLOGF(INFO, "injectKill({}, {}, count={})", keyClass, keyValueRegex, count);
   injectFault(keyClass, keyValueRegex, Kill{}, count);
 }
 
@@ -132,8 +128,12 @@ void FaultInjector::injectDelayedError(
     std::chrono::milliseconds duration,
     folly::exception_wrapper error,
     size_t count) {
-  XLOG(INFO) << "injectDelayedError(" << keyClass << ", " << keyValueRegex
-             << ", count=" << count << ")";
+  XLOGF(
+      INFO,
+      "injectDelayedError({}, {}, count={})",
+      keyClass,
+      keyValueRegex,
+      count);
   injectFault(
       keyClass, keyValueRegex, Delay{duration, std::move(error)}, count);
 }
@@ -142,8 +142,7 @@ void FaultInjector::injectNoop(
     std::string_view keyClass,
     std::string_view keyValueRegex,
     size_t count) {
-  XLOG(INFO) << "injectNoop(" << keyClass << ", " << keyValueRegex
-             << ", count=" << count << ")";
+  XLOGF(INFO, "injectNoop({}, {}, count={})", keyClass, keyValueRegex, count);
   injectFault(keyClass, keyValueRegex, folly::unit, count);
 }
 
@@ -169,8 +168,12 @@ bool FaultInjector::removeFault(
   // Look for any faults matching this key class
   auto classIter = state->faults.find(keyClass);
   if (classIter == state->faults.end()) {
-    XLOG(DBG2) << "removeFault(" << keyClass << ", " << keyValueRegex
-               << ") --> no faults defined for class " << keyClass;
+    XLOGF(
+        DBG2,
+        "removeFault({}, {}) --> no faults defined for class {}",
+        keyClass,
+        keyValueRegex,
+        keyClass);
     return false;
   }
 
@@ -178,7 +181,7 @@ bool FaultInjector::removeFault(
   auto& faultVector = classIter->second;
   for (auto iter = faultVector.begin(); iter != faultVector.end(); ++iter) {
     if (iter->keyValueRegex.str() == keyValueRegex) {
-      XLOG(INFO) << "removeFault(" << keyClass << ", " << keyValueRegex << ")";
+      XLOGF(INFO, "removeFault({}, {})", keyClass, keyValueRegex);
       faultVector.erase(iter);
       if (faultVector.empty()) {
         state->faults.erase(classIter);
@@ -187,15 +190,14 @@ bool FaultInjector::removeFault(
     }
   }
 
-  XLOG(DBG2) << "removeFault(" << keyClass << ", " << keyValueRegex
-             << ") --> no match";
+  XLOGF(DBG2, "removeFault({}, {}) --> no match", keyClass, keyValueRegex);
   return false;
 }
 
 size_t FaultInjector::unblock(
     std::string_view keyClass,
     std::string_view keyValueRegex) {
-  XLOG(DBG1) << "unblock(" << keyClass << ", " << keyValueRegex << ")";
+  XLOGF(DBG1, "unblock({}, {})", keyClass, keyValueRegex);
   auto matches = extractBlockedChecks(keyClass, keyValueRegex);
   for (auto& match : matches) {
     match.promise.setValue();
@@ -207,7 +209,7 @@ size_t FaultInjector::unblockWithError(
     std::string_view keyClass,
     std::string_view keyValueRegex,
     folly::exception_wrapper error) {
-  XLOG(DBG1) << "unblockWithError(" << keyClass << ", " << keyValueRegex << ")";
+  XLOGF(DBG1, "unblockWithError({}, {})", keyClass, keyValueRegex);
   auto matches = extractBlockedChecks(keyClass, keyValueRegex);
   for (auto& match : matches) {
     match.promise.setException(error);
@@ -216,26 +218,30 @@ size_t FaultInjector::unblockWithError(
 }
 
 size_t FaultInjector::unblockAll() {
-  XLOG(DBG1) << "unblockAll()";
+  XLOG(DBG1, "unblockAll()");
   return unblockAllImpl(std::nullopt);
 }
 
 size_t FaultInjector::unblockAllWithError(folly::exception_wrapper error) {
-  XLOG(DBG1) << "unblockAllWithError()";
+  XLOG(DBG1, "unblockAllWithError()");
   return unblockAllImpl(std::move(error));
 }
 
 FaultInjector::FaultBehavior FaultInjector::findFault(
     std::string_view keyClass,
     std::string_view keyValue) {
-  XLOG(DBG4) << "findFault(" << keyClass << ", " << keyValue << ")";
+  XLOGF(DBG4, "findFault({}, {})", keyClass, keyValue);
   auto state = state_.wlock();
 
   // Look for any faults matching this key class
   auto classIter = state->faults.find(keyClass);
   if (classIter == state->faults.end()) {
-    XLOG(DBG6) << "findFault(" << keyClass << ", " << keyValue
-               << ") --> no faults for class " << keyClass;
+    XLOGF(
+        DBG6,
+        "findFault({}, {}) --> no faults for class {}",
+        keyClass,
+        keyValue,
+        keyClass);
     return folly::unit;
   }
 
@@ -244,30 +250,36 @@ FaultInjector::FaultBehavior FaultInjector::findFault(
   for (auto iter = faultVector.begin(); iter != faultVector.end(); ++iter) {
     if (!boost::regex_match(
             keyValue.begin(), keyValue.end(), iter->keyValueRegex)) {
-      XLOG(DBG8) << "findFault(" << keyClass << ", " << keyValue
-                 << ") --> no match against /" << iter->keyValueRegex.str()
-                 << "/";
+      XLOGF(
+          DBG8,
+          "findFault({}, {}) --> no match against /{}/",
+          keyClass,
+          keyValue,
+          iter->keyValueRegex.str());
       continue;
     }
 
     // Found a matching fault
-    XLOG(DBG3) << "findFault(" << keyClass << ", " << keyValue
-               << ") --> matched /" << iter->keyValueRegex.str() << "/";
+    XLOGF(
+        DBG3,
+        "findFault({}, {}) --> matched /{}/",
+        keyClass,
+        keyValue,
+        iter->keyValueRegex.str());
     auto behavior = iter->behavior;
     if (iter->countRemaining > 0) {
       --iter->countRemaining;
       if (iter->countRemaining == 0) {
         // This was the last match
-        XLOG(DBG1) << "fault expired: " << keyClass << ", "
-                   << iter->keyValueRegex.str();
+        XLOGF(
+            DBG1, "fault expired: {}, {}", keyClass, iter->keyValueRegex.str());
         faultVector.erase(iter);
       }
     }
     return behavior;
   }
 
-  XLOG(DBG6) << "findFault(" << keyClass << ", " << keyValue
-             << ") --> no matches found";
+  XLOGF(DBG6, "findFault({}, {}) --> no matches found", keyClass, keyValue);
   return folly::unit;
 }
 

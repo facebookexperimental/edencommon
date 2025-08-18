@@ -147,8 +147,10 @@ class MappedDiskVector {
     if (readBytes == -1) {
       folly::throwSystemError("failed to read MappedDiskVector header");
     } else if (readBytes != sizeof(header)) {
-      XLOG(WARNING) << "file contains incomplete header: only read "
-                    << readBytes << " bytes";
+      XLOGF(
+          WARNING,
+          "file contains incomplete header: only read {} bytes",
+          readBytes);
       throw std::runtime_error("Incomplete MappedDiskVector header");
     }
 
@@ -429,9 +431,10 @@ class MappedDiskVector {
     size_t desiredSize = detail::roundUpToNonzeroPageSize(fileSize);
     if (fileSize != static_cast<ssize_t>(desiredSize)) {
       if (fileSize) {
-        XLOG(WARNING)
-            << "Warning: MappedDiskVector file size not multiple of page size: "
-            << fileSize;
+        XLOGF(
+            WARNING,
+            "Warning: MappedDiskVector file size not multiple of page size: {}",
+            fileSize);
       }
       if (folly::ftruncateNoInt(file_.fd(), desiredSize)) {
         folly::throwSystemError(

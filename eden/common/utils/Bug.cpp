@@ -40,15 +40,14 @@ void EdenBug::throwException() {
 }
 
 void EdenBug::logError() {
-  XLOG(CRITICAL) << "EDEN_BUG at " << file_ << ":" << lineNumber_ << ": "
-                 << message_;
+  XLOGF(CRITICAL, "EDEN_BUG at {}:{}: {}", file_, lineNumber_, message_);
 
 #ifndef NDEBUG
   // Crash in debug builds.
   // However, allow test code to disable crashing so that we can exercise
   // EDEN_BUG() code paths in tests.
   if (edenBugDisabledCount.load() == 0) {
-    XLOG(FATAL) << "crashing due to EDEN_BUG";
+    XLOG(FATAL, "crashing due to EDEN_BUG");
   }
 #endif
 }

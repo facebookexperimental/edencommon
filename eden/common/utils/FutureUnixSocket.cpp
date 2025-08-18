@@ -215,7 +215,7 @@ void FutureUnixSocket::receiveTimeout() {
 }
 
 void FutureUnixSocket::messageReceived(Message&& message) noexcept {
-  XLOG(DBG3) << "messageReceived()";
+  XLOG(DBG3, "messageReceived()");
   XCHECK(recvQueue_);
   XDCHECK(recvQueueTail_);
 
@@ -235,19 +235,19 @@ void FutureUnixSocket::messageReceived(Message&& message) noexcept {
 }
 
 void FutureUnixSocket::eofReceived() noexcept {
-  XLOG(DBG3) << "eofReceived()";
+  XLOG(DBG3, "eofReceived()");
   socket_.reset();
   failAllPromises(std::runtime_error("remote endpoint closed connection"));
 }
 
 void FutureUnixSocket::socketClosed() noexcept {
-  XLOG(DBG3) << "socketClosed()";
+  XLOG(DBG3, "socketClosed()");
   socket_.reset();
   failAllPromises(std::runtime_error("socket closed locally"));
 }
 
 void FutureUnixSocket::receiveError(const exception_wrapper& ew) noexcept {
-  XLOG(DBG3) << "receiveError()";
+  XLOG(DBG3, "receiveError()");
   socket_.reset();
   failAllPromises(ew);
 }
