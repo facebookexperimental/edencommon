@@ -30,6 +30,7 @@ constexpr int kENOATTR =
 
 constexpr std::string_view kXattrSha1{"user.sha1"};
 constexpr std::string_view kXattrBlake3{"user.blake3"};
+constexpr std::string_view kXattrDigestHash{"user.digesthash"};
 
 std::string fgetxattr(int fd, std::string_view name);
 void fsetxattr(int fd, std::string_view name, std::string_view value);
