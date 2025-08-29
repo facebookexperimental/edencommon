@@ -6,7 +6,7 @@
  */
 
 #ifdef _WIN32
-#include "eden/common/utils/WinError.h"
+#include "eden/common/utils/windows/WinError.h"
 #include <iostream>
 #include <memory>
 #include <sstream>

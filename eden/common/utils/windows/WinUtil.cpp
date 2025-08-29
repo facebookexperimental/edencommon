@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "eden/common/utils/WinUtil.h"
+#include "eden/common/utils/windows/WinUtil.h"
 
 #ifdef _WIN32
 

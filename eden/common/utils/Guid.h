@@ -9,7 +9,7 @@
 
 #include <fmt/format.h>
 #include <folly/portability/Windows.h>
-#include "eden/common/utils/WinError.h"
+#include "eden/common/utils/windows/WinError.h"
 
 #ifdef _WIN32
 

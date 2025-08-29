@@ -8,7 +8,7 @@
 #pragma once
 
 #include <system_error>
-#include "eden/common/utils/WinError.h"
+#include "eden/common/utils/windows/WinError.h"
 
 namespace facebook::eden {
 

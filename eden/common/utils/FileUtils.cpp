@@ -14,7 +14,7 @@
 #include <folly/FileUtil.h>
 
 #include "eden/common/utils/Try.h"
-#include "eden/common/utils/WinError.h"
+#include "eden/common/utils/windows/WinError.h"
 
 #ifdef _WIN32
 

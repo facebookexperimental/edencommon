@@ -19,7 +19,7 @@
 #include <Lmcons.h> // @manual
 #include <userenv.h> // @manual
 #include "eden/common/utils/Handle.h"
-#include "eden/common/utils/WinError.h"
+#include "eden/common/utils/windows/WinError.h"
 #endif // _WIN32
 
 #include <vector>

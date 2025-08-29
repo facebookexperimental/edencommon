@@ -24,7 +24,7 @@
 #include <thread>
 
 #include "eden/common/utils/StringConv.h"
-#include "eden/common/utils/WinError.h"
+#include "eden/common/utils/windows/WinError.h"
 
 #ifndef _WIN32
 #include <sys/poll.h>

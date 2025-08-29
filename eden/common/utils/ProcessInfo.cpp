@@ -19,7 +19,7 @@
 
 #include "eden/common/utils/ProcessInfo.h"
 #include "eden/common/utils/UserInfo.h"
-#include "eden/common/utils/WinError.h"
+#include "eden/common/utils/windows/WinError.h"
 
 #include <folly/Exception.h>
 #include <folly/FileUtil.h>

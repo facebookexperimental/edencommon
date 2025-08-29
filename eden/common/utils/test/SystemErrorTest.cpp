@@ -7,7 +7,7 @@
 
 #include <folly/portability/GTest.h>
 #include <string>
-#include "eden/common/utils/WinError.h"
+#include "eden/common/utils/windows/WinError.h"
 
 #ifdef _WIN32
 
