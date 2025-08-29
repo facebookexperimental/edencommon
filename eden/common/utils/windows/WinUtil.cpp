@@ -9,7 +9,7 @@
 
 #ifdef _WIN32
 
-#include "c2p/secure_thrift/cpp/client/platform/windows/PlatformWindowsUnixSock.h" // @donotremove
+#include "eden/common/utils/windows/PlatformWindowsUnixSock.h" // @donotremove
 
 namespace facebook::eden {
 
@@ -21,7 +21,7 @@ pid_t getPeerProcessID(intptr_t fd) {
                        // but is a required parameter
   int valid_peer = WSAIoctl(
       fd,
-      facebook::corp2prod::platform::getPeerIoctlCode(),
+      getPeerIoctlCode(),
       nullptr,
       0,
       &peer_PID,
