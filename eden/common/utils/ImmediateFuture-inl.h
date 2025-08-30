@@ -436,6 +436,56 @@ collectAll(Fs&&... fs) {
 }
 
 template <typename... Fs>
+ImmediateFuture<std::tuple<std::optional<
+    folly::Try<typename folly::remove_cvref_t<Fs>::value_type>>...>>
+collectAllValid(Fs&&... fs) {
+  using Result = std::tuple<std::optional<
+      folly::Try<typename folly::remove_cvref_t<Fs>::value_type>>...>;
+  struct Context {
+    ~Context() {
+      p.setValue(std::move(results));
+    }
+    folly::Promise<Result> p;
+    Result results;
+  };
+
+  std::vector<folly::SemiFuture<folly::Unit>> semis;
+
+  // TODO: fast-path the case where everything is ready and avoid allocations
+  // entirely.
+  auto ctx = std::make_shared<Context>();
+  folly::futures::detail::foreach(
+      [&](auto i, auto&& f) {
+        if (f.valid()) {
+          if (f.isReady()) {
+            std::get<i.value>(ctx->results) = std::move(f).getTry();
+          } else {
+            semis.emplace_back(std::move(f).semi().defer([i, ctx](auto&& t) {
+              std::get<i.value>(ctx->results) = std::move(t);
+            }));
+          }
+        } else {
+          std::get<i.value>(ctx->results) = std::nullopt;
+        }
+      },
+      static_cast<Fs&&>(fs)...);
+
+  if (semis.empty()) {
+    // Since all the ImmediateFuture were ready, the Context hasn't been
+    // copied to any lambdas, and thus will be destroyed once this lambda
+    // returns. This will make the returned SemiFuture ready which the
+    // ImmediateFuture constructor will extract the value from.
+    auto fut = ctx->p.getSemiFuture();
+    ctx.reset();
+    return fut;
+  }
+
+  return folly::collectAll(std::move(semis)).deferValue([ctx](auto&&) {
+    return ctx->p.getSemiFuture();
+  });
+}
+
+template <typename... Fs>
 ImmediateFuture<std::tuple<typename folly::remove_cvref_t<Fs>::value_type...>>
 collectAllSafe(Fs&&... fs) {
   return facebook::eden::collectAll(static_cast<Fs&&>(fs)...)

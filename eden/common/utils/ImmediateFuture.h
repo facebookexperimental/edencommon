@@ -425,6 +425,21 @@ ImmediateFuture<
 collectAll(Fs&&... fs);
 
 /**
+ * Run all the *valid* passed in ImmediateFuture to completion. Some passed in
+ * ImmediateFutures may be "empty" (i.e. invalid). This function ignores those
+ * immediate futures and returns nullopt for their result.
+ *
+ * This can be useful when a caller only wants to evaluate a subset of futures,
+ * but still wants to perform a collectAll to keep the code clean and evaluate
+ * all desired Futures at once. This helps the caller avoid using dummy values
+ * or precomputed errors.
+ */
+template <typename... Fs>
+ImmediateFuture<std::tuple<std::optional<
+    folly::Try<typename folly::remove_cvref_t<Fs>::value_type>>...>>
+collectAllValid(Fs&&... fs);
+
+/**
  * Run all the passed in ImmediateFuture to completion.
  *
  * This behaves similarly to the collectAll from above, but unwraps all the
