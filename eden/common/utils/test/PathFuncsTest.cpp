@@ -1396,4 +1396,45 @@ TEST(PathFuncs, substr) {
   }
 }
 
+TEST(PathFuncs, filename) {
+  RelativePathPiece base{"root/bar/baz"};
+  RelativePathPiece single{"baz"};
+  RelativePathPiece empty{""};
+  RelativePathPiece filename{"baz"};
+
+  EXPECT_EQ(base.filename(), filename);
+  EXPECT_EQ(single.filename(), filename);
+  EXPECT_EQ(empty.filename(), empty);
+
+  if (folly::kIsWindows) {
+    RelativePathPiece winBase{"root\\bar/baz"};
+    EXPECT_EQ(winBase.filename(), filename);
+  }
+}
+
+TEST(PathFuncs, stem) {
+  RelativePathPiece empty{""};
+  RelativePathPiece base{"root/bar/baz.txt"};
+  RelativePathPiece noSuffix{"root/bar/baz"};
+  RelativePathPiece leading{"root/bar/.baz"};
+  RelativePathPiece leadingWithSuffix{"root/bar/.baz.txt"};
+  RelativePathPiece multipleSuffix{"root/bar/.baz.bar.txt"};
+
+  RelativePathPiece stem{"baz"};
+  RelativePathPiece dotStem{".baz"};
+  RelativePathPiece multiStem{".baz.bar"};
+
+  EXPECT_EQ(empty.stem(), empty);
+  EXPECT_EQ(base.stem(), stem);
+  EXPECT_EQ(noSuffix.stem(), stem);
+  EXPECT_EQ(leading.stem(), dotStem);
+  EXPECT_EQ(leadingWithSuffix.stem(), dotStem);
+  EXPECT_EQ(multipleSuffix.stem(), multiStem);
+
+  if (folly::kIsWindows) {
+    RelativePathPiece winBase{"root\\bar/baz"};
+    EXPECT_EQ(winBase.stem(), stem);
+  }
+}
+
 } // namespace facebook::eden

@@ -1528,6 +1528,42 @@ class RelativePathBase : public ComposedPathBase<
     return RelativePathPiece{substr_result};
   }
 
+  // Returns the filename of this path.
+  // If this is empty, return this, otherwise return the first entry
+  // from the reverse iterator
+  RelativePathPiece filename() const {
+    if (this->empty()) {
+      return *this;
+    }
+    auto r_iterator = this->rsuffixes();
+    return *r_iterator.begin();
+  }
+
+  // Returns the filename identified by the generic-format path stripped of its
+  // extension. Returns the substring from the beginning of filename() up to and
+  // not including the last period (.) character, with the following exceptions:
+
+  // If the first character in the filename is a period, that period is ignored
+  // (a filename like ".profile" is not treated as an extension). If
+  // it has no periods, the function returns the entire filename().
+  // Dot and dot-dot are addressed in the std impl but are not valid
+  // PathComponents
+  RelativePathPiece stem() const {
+    auto filename = this->filename().value();
+    size_t last_period = filename.rfind(".");
+    if (last_period != std::string::npos) {
+      if (last_period == 0) {
+        // Starts with period, with no other periods. Return the filename
+        return RelativePathPiece{filename};
+      }
+      // Period found. Remove the suffix following the last period
+      return RelativePathPiece{filename.substr(0, last_period)};
+    } else {
+      // No period
+      return RelativePathPiece{filename};
+    }
+  }
+
 }; // namespace detail
 
 /// Asserts that val is well formed absolute path
