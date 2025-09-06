@@ -13,6 +13,9 @@
 file(GLOB utils_headers CONFIGURE_DEPENDS *.h)
 file(GLOB utils_sources CONFIGURE_DEPENDS *.cpp)
 
+file(GLOB windows_headers CONFIGURE_DEPENDS windows/*.h)
+file(GLOB windows_sources CONFIGURE_DEPENDS windows/*.cpp)
+
 if (WIN32)
   list(
     REMOVE_ITEM utils_headers
@@ -27,7 +30,9 @@ endif()
 add_library(
   edencommon_utils
     ${utils_headers}
-    ${utils_sources})
+    ${utils_sources}
+    ${windows_headers}
+    ${windows_sources})
 
 target_link_libraries(
   edencommon_utils
@@ -63,6 +68,10 @@ install(
 install(
   FILES ${utils_headers}
   DESTINATION ${INCLUDE_INSTALL_DIR}/eden/common/utils
+)
+install(
+  FILES ${windows_headers}
+  DESTINATION ${INCLUDE_INSTALL_DIR}/eden/common/utils/windows
 )
 
 add_subdirectory(test)
