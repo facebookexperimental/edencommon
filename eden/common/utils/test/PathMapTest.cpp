@@ -340,3 +340,16 @@ TEST(PathMapTest, collatePathMaps_caseSensitive) {
   ASSERT_EQ(expected, collatePathMaps(a, b));
   ASSERT_EQ(expected.getCaseSensitivity(), CaseSensitivity::Sensitive);
 }
+
+TEST(PathMapTest, vecConstructor) {
+  folly::fbvector<std::pair<PathComponent, bool>> vec{
+      {PathComponent("zebra"), true},
+      {PathComponent("aardvark"), false},
+  };
+
+  auto m = PathMap<bool>{std::move(vec), CaseSensitivity::Sensitive};
+
+  // Make sure we can access both elements (i.e. confirm they were sorted).
+  ASSERT_EQ(true, m.at(PathComponent{"zebra"}));
+  ASSERT_EQ(false, m.at(PathComponent{"aardvark"}));
+}

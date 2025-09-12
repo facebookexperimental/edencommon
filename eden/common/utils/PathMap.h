@@ -75,6 +75,14 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
       return isPathPieceLess(Piece(lhs.first), Piece(b), caseSensitive_);
     }
 
+    // Compare two stored Pairs.
+    template <typename A, typename B>
+    typename std::enable_if<std::is_convertible<A, Piece>::value, bool>::type
+    operator()(const std::pair<A, B>& lhs, const std::pair<A, B>& rhs) const {
+      return isPathPieceLess(
+          Piece(lhs.first), Piece(rhs.first), caseSensitive_);
+    }
+
     CaseSensitivity caseSensitive_{kPathMapDefaultCaseSensitive};
   };
 
@@ -120,6 +128,28 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
     this->reserve(std::distance(first, last));
     for (; first != last; ++first) {
       insert(*first);
+    }
+  }
+
+  // Initialize using given vector of entries, sorting if needed.
+  // This is more efficient than calling PathMap::emplace n times.
+  PathMap(Vector&& entries, CaseSensitivity caseSensitive)
+      : Vector(std::move(entries)), compare_(caseSensitive) {
+    Vector& vec = *this;
+
+    // It seems like std::sort isn't guaranteed to be fast when the data is
+    // already sorted, so let's check ourselves.
+
+    bool needsSort = false;
+    for (size_t idx = 0; idx < vec.size(); idx++) {
+      if (idx > 0 && !compare_(vec[idx - 1].first, vec[idx].first)) {
+        needsSort = true;
+        break;
+      }
+    }
+
+    if (needsSort) {
+      std::sort(vec.begin(), vec.end(), compare_);
     }
   }
 
