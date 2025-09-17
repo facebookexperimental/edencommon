@@ -49,7 +49,7 @@ StatAccumulator measureClockOverhead() noexcept {
 
 int runBenchmarkMain(int argc, char** argv) {
   ::benchmark::Initialize(&argc, argv);
-  folly::init(&argc, &argv);
+  const folly::Init init(&argc, &argv);
   if (::benchmark::ReportUnrecognizedArguments(argc, argv)) {
     return 1;
   }
