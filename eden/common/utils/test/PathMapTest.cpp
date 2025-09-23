@@ -342,14 +342,76 @@ TEST(PathMapTest, collatePathMaps_caseSensitive) {
 }
 
 TEST(PathMapTest, vecConstructor) {
-  folly::fbvector<std::pair<PathComponent, bool>> vec{
-      {PathComponent("zebra"), true},
-      {PathComponent("aardvark"), false},
-  };
+  {
+    folly::fbvector<std::pair<PathComponent, bool>> vec{
+        {PathComponent("zebra"), true},
+        {PathComponent("aardvark"), false},
+    };
 
-  auto m = PathMap<bool>{std::move(vec), CaseSensitivity::Sensitive};
+    auto m = PathMap<bool>{std::move(vec), CaseSensitivity::Sensitive};
 
-  // Make sure we can access both elements (i.e. confirm they were sorted).
-  ASSERT_EQ(true, m.at(PathComponent{"zebra"}));
-  ASSERT_EQ(false, m.at(PathComponent{"aardvark"}));
+    // Make sure we can access both elements (i.e. confirm they were sorted).
+    ASSERT_EQ(true, m.at(PathComponent{"zebra"}));
+    ASSERT_EQ(false, m.at(PathComponent{"aardvark"}));
+  }
+
+  {
+    folly::fbvector<std::pair<PathComponent, bool>> vec{
+        {PathComponent("zebra"), true},
+        {PathComponent("aardvark"), false},
+        {PathComponent("zebra"), false},
+    };
+
+    auto m = PathMap<bool>{std::move(vec), CaseSensitivity::Sensitive};
+
+    // First entry wins.
+    ASSERT_EQ(true, m.at(PathComponent{"zebra"}));
+    ASSERT_EQ(false, m.at(PathComponent{"aardvark"}));
+    // Deduped.
+    ASSERT_EQ(2, m.size());
+  }
+}
+
+TEST(PathMapTest, vecConstructorInsensitive) {
+  // First establish that with case insensitive collision, the first entry
+  // "wins" when emplacing in a loop.
+
+  {
+    auto m = PathMap<bool>{CaseSensitivity::Insensitive};
+    m.emplace(PathComponent{"HELLO"}, true);
+    m.emplace(PathComponent{"hElLo"}, false);
+    ASSERT_EQ(true, m.find("hello"_pc)->second);
+    ASSERT_EQ(1, m.size());
+  }
+
+  {
+    auto m = PathMap<bool>{CaseSensitivity::Insensitive};
+    m.emplace(PathComponent{"hElLo"}, true);
+    m.emplace(PathComponent{"HELLO"}, false);
+    ASSERT_EQ(true, m.find("hello"_pc)->second);
+    ASSERT_EQ(1, m.size());
+  }
+
+  // Now check that the vector constructor has the same behavior, regardless
+  // of the vector order.
+
+  {
+    folly::fbvector<std::pair<PathComponent, bool>> vec{
+        {PathComponent{"HELLO"}, true},
+        {PathComponent{"hElLo"}, false},
+    };
+    auto m = PathMap<bool>{std::move(vec), CaseSensitivity::Insensitive};
+    ASSERT_EQ(true, m.find("hello"_pc)->second);
+    ASSERT_EQ(1, m.size());
+  }
+
+  {
+    folly::fbvector<std::pair<PathComponent, bool>> vec{
+        {PathComponent{"hElLo"}, true},
+        {PathComponent{"HELLO"}, false},
+    };
+    auto m = PathMap<bool>{std::move(vec), CaseSensitivity::Insensitive};
+    ASSERT_EQ(true, m.find("hello"_pc)->second);
+    ASSERT_EQ(1, m.size());
+  }
 }

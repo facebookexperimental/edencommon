@@ -131,25 +131,39 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
     }
   }
 
-  // Initialize using given vector of entries, sorting if needed.
+  // Initialize using given vector of entries, sorting and deduping if needed.
   // This is more efficient than calling PathMap::emplace n times.
   PathMap(Vector&& entries, CaseSensitivity caseSensitive)
       : Vector(std::move(entries)), compare_(caseSensitive) {
     Vector& vec = *this;
 
-    // It seems like std::sort isn't guaranteed to be fast when the data is
-    // already sorted, so let's check ourselves.
+    // In practice, Sapling yields tree entries naively sorted. On case
+    // sensitive filesystems, the natural sorting will match what we want and
+    // should never contain duplicates, so we will hit our fast path below and
+    // avoid sorting. On case insensitive filesystems, if the entries don't
+    // happen to be sorted (or there are case insensitive collisions), we will
+    // hit the slow path below to sort and/or dedupe.
 
-    bool needsSort = false;
+    bool needsSortAndOrDedupe = false;
     for (size_t idx = 0; idx < vec.size(); idx++) {
       if (idx > 0 && !compare_(vec[idx - 1].first, vec[idx].first)) {
-        needsSort = true;
+        needsSortAndOrDedupe = true;
         break;
       }
     }
 
-    if (needsSort) {
-      std::sort(vec.begin(), vec.end(), compare_);
+    if (needsSortAndOrDedupe) {
+      // Need to sort and/or remove duplicates. The earliest entry "wins".
+
+      // Stable sort so earliest entry remains first after sort.
+      std::stable_sort(vec.begin(), vec.end(), compare_);
+
+      // Unique out the duplicates.
+      auto last = std::unique(vec.begin(), vec.end(), [=](auto& a, auto& b) {
+        // NB: assumes Key is PathComponent (but so does Compare).
+        return isPathPieceEqual(a.first, b.first, caseSensitive);
+      });
+      vec.erase(last, vec.end());
     }
   }
 
@@ -268,7 +282,8 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
   }
 
   /** Returns a reference to the map position for key, creating it needed.
-   * If the key is already present, no additional allocations are performed. */
+   * If the key is already present, no additional allocations are performed.
+   */
   mapped_type& operator[](Piece key) {
     auto iter = lower_bound(key);
 
