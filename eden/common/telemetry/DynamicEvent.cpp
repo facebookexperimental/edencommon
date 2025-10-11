@@ -8,19 +8,9 @@
 #include "eden/common/telemetry/DynamicEvent.h"
 
 #include <folly/Conv.h>
-#include <folly/Unicode.h>
 #include <folly/logging/xlog.h>
 #include "eden/common/utils/Throw.h"
-
-namespace {
-void validateUtf8(folly::StringPiece sp) {
-  auto* p = reinterpret_cast<const unsigned char*>(sp.begin());
-  auto* const end = reinterpret_cast<const unsigned char*>(sp.end());
-  while (p < end) {
-    (void)folly::utf8ToCodePoint(p, end, false);
-  }
-}
-} // namespace
+#include "eden/common/utils/Utf8.h"
 
 namespace facebook::eden {
 
@@ -51,8 +41,9 @@ void DynamicEvent::addInt(std::string name, int64_t value) {
 }
 
 void DynamicEvent::addString(std::string name, std::string value) {
-  validateUtf8(value);
-  auto [iter, inserted] = strings_.emplace(std::move(name), std::move(value));
+  auto validatedValue = ensureValidUtf8(std::move(value));
+  auto [iter, inserted] =
+      strings_.emplace(std::move(name), std::move(validatedValue));
   if (!inserted) {
     throw_<std::logic_error>(
         "Attempted to insert duplicate string: ", iter->first);
@@ -73,11 +64,13 @@ void DynamicEvent::addDouble(std::string name, double value) {
 void DynamicEvent::addStringVec(
     std::string name,
     std::vector<std::string> value) {
-  for (auto& vref : value) {
-    validateUtf8(vref);
+  std::vector<std::string> validatedValue;
+  validatedValue.reserve(value.size());
+  for (auto&& v : value) {
+    validatedValue.emplace_back(ensureValidUtf8(v));
   }
   auto [iter, inserted] =
-      stringVecs_.emplace(std::move(name), std::move(value));
+      stringVecs_.emplace(std::move(name), std::move(validatedValue));
   if (!inserted) {
     throw_<std::logic_error>(
         "Attempted to insert duplicate string vector: ", iter->first);

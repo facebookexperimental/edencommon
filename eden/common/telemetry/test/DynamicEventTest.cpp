@@ -80,8 +80,10 @@ TEST(DynamicEventTest, AddTruncatedInt) {
 }
 TEST(DynamicEventTest, ValidateUtf8) {
   DynamicEvent event;
-  EXPECT_THROW(
-      event.addString("test_invalid_utf8", "\xFF\xFF"), std::exception);
+  event.addString("test_invalid_utf8", "\xFF\xFF");
+  const auto& strMap = event.getStringMap();
+  EXPECT_EQ(strMap.size(), 1);
+  EXPECT_EQ(strMap.at("test_invalid_utf8"), "\ufffd\ufffd");
 }
 TEST(DynamicEventTest, AddStringVec) {
   DynamicEvent event;
