@@ -468,4 +468,64 @@ folly::coro::Task<folly::Unit> FaultInjector::pollCancellationToken(
     co_await folly::coro::sleep(std::chrono::milliseconds{1});
   }
 }
+bool FaultInjector::hasBlockWithCancelFault(
+    std::string_view keyClass,
+    std::string_view keyValue) {
+  auto state = state_.wlock();
+
+  auto it = state->faults.find(keyClass);
+  if (it == state->faults.end()) {
+    return false;
+  }
+
+  for (auto& fault : it->second) {
+    if (boost::regex_match(std::string(keyValue), fault.keyValueRegex)) {
+      if (std::get_if<BlockWithCancel>(&fault.behavior)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+void FaultInjector::updateBlockWithCancelToken(
+    std::string_view keyClass,
+    std::string_view keyValue,
+    const folly::CancellationToken& newToken) {
+  auto state = state_.wlock();
+
+  auto it = state->faults.find(keyClass);
+  if (it == state->faults.end()) {
+    XLOGF(
+        WARN,
+        "updateBlockWithCancelToken({}, {}): no faults for keyClass",
+        keyClass,
+        keyValue);
+    return;
+  }
+
+  for (auto& fault : it->second) {
+    if (boost::regex_match(std::string(keyValue), fault.keyValueRegex)) {
+      if (auto* blockWithCancel =
+              std::get_if<BlockWithCancel>(&fault.behavior)) {
+        blockWithCancel->cancellationToken = newToken;
+        XLOGF(
+            DBG3,
+            "Updated BlockWithCancel fault cancellation token for ({}, {}) (timeout={}ms)",
+            keyClass,
+            keyValue,
+            blockWithCancel->timeoutDuration.count());
+        return;
+      }
+    }
+  }
+
+  XLOGF(
+      WARN,
+      "updateBlockWithCancelToken({}, {}): no matching BlockWithCancel fault found",
+      keyClass,
+      keyValue);
+}
+
 } // namespace facebook::eden

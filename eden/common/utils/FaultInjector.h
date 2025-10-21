@@ -118,6 +118,27 @@ class FaultInjector {
   }
 
   /**
+   * Wait for cancellation or timeout for a BlockWithCancel fault
+   *
+   * This is a convenience method that combines:
+   * 1. Updating the fault's cancellation token
+   * 2. Executing checkAsync to wait for cancel or timeout
+   *
+   */
+  template <typename... Args>
+  FOLLY_NODISCARD ImmediateFuture<folly::Unit> waitForCancelOrTimeout(
+      std::string_view keyClass,
+      folly::CancellationToken cancellationToken,
+      Args&&... keyValues) {
+    if (UNLIKELY(enabled_)) {
+      auto key = constructKey(std::forward<Args>(keyValues)...);
+      updateBlockWithCancelToken(keyClass, key, cancellationToken);
+      return checkAsyncImpl(keyClass, key);
+    }
+    return folly::unit;
+  }
+
+  /**
    * Check for an injected fault with the specified key.
    *
    * This is a synchronous implementation of check() that returns a Try rather
@@ -257,6 +278,23 @@ class FaultInjector {
   bool waitUntilBlocked(
       std::string_view keyClass,
       std::chrono::milliseconds timeout);
+
+  /**
+   * Check if a BlockWithCancel fault exists for the given key class and value.
+   */
+  bool hasBlockWithCancelFault(
+      std::string_view keyClass,
+      std::string_view keyValue);
+
+  /**
+   * Update the cancellation token of a BlockWithCancel fault.
+   * This allows runtime code to replace the placeholder cancellation token
+   * with the actual request's cancellation token.
+   */
+  void updateBlockWithCancelToken(
+      std::string_view keyClass,
+      std::string_view keyValue,
+      const folly::CancellationToken& newToken);
 
  private:
   struct Block {};
