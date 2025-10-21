@@ -9,8 +9,10 @@
 
 #include <boost/regex.hpp>
 #include <fmt/ranges.h>
+#include <folly/CancellationToken.h>
 #include <folly/Synchronized.h>
 #include <folly/container/F14Map.h>
+#include <folly/coro/Task.h>
 #include <chrono>
 #include <optional>
 #include <string_view>
@@ -165,6 +167,19 @@ class FaultInjector {
       size_t count = 0);
 
   /**
+   * Inject a fault that causes the check call to block and poll for
+   * cancellation. This fault blocks until either:
+   * 1. The cancellation token is triggered
+   * 2. The timeout is reached
+   */
+  void injectBlockWithCancel(
+      std::string_view keyClass,
+      std::string_view keyValueRegex,
+      folly::CancellationToken cancellationToken,
+      std::chrono::milliseconds timeout = std::chrono::milliseconds{5000},
+      size_t count = 0);
+
+  /**
    * Inject a fault that causes the check call to block for a specific amount of
    * time before automatically continuing.
    */
@@ -245,19 +260,27 @@ class FaultInjector {
 
  private:
   struct Block {};
+  struct BlockWithCancel {
+    explicit BlockWithCancel(
+        folly::CancellationToken token,
+        std::chrono::milliseconds timeout = std::chrono::milliseconds{5000})
+        : cancellationToken(std::move(token)), timeoutDuration(timeout) {}
+
+    folly::CancellationToken cancellationToken;
+    std::chrono::milliseconds timeoutDuration;
+  };
   struct Delay {
     explicit Delay(std::chrono::milliseconds d) : duration(d) {}
     Delay(std::chrono::milliseconds d, folly::exception_wrapper e)
         : duration(d), error{std::move(e)} {}
-
     std::chrono::milliseconds duration;
     std::optional<folly::exception_wrapper> error;
   };
   struct Kill {};
-
   using FaultBehavior = std::variant<
       folly::Unit, // no fault
       Block, // block until explicitly unblocked at a later point
+      BlockWithCancel, // block and poll for cancellation
       Delay, // delay for a specified amount of time
       folly::exception_wrapper, // throw an exception
       Kill // exit the process ungracefully
@@ -293,8 +316,8 @@ class FaultInjector {
         fmt::join(std::make_tuple<const Args&...>(args...), ", "));
   }
 
-  // An overload to skip string construction for the degenerate case of a single
-  // string_view argument to the check function templates.
+  // An overload to skip string construction for the degenerate case of a
+  // single string_view argument to the check function templates.
   std::string_view constructKey(std::string_view s) {
     return s;
   }
@@ -325,9 +348,21 @@ class FaultInjector {
   size_t unblockAllImpl(std::optional<folly::exception_wrapper> error);
 
   /**
+   * Poll a cancellation token until it's triggered or timeout occurs.
+   * This is a cooperative coroutine that yields periodically to avoid blocking.
+   * Throws OperationCancelled if cancelled
+   * Throws std::runtime_error if timeout occurs
+   */
+  FOLLY_NODISCARD folly::coro::Task<folly::Unit> pollCancellationToken(
+      std::string_view keyClass,
+      std::string_view keyValue,
+      folly::CancellationToken cancellationToken,
+      std::chrono::milliseconds timeout);
+
+  /**
    * Fault injection is normally disabled during normal production use.
-   * This simple constant flag allows us to quickly check if fault injection is
-   * enabled in the first place, and fall through
+   * This simple constant flag allows us to quickly check if fault injection
+   * is enabled in the first place, and fall through
    */
   bool const enabled_{false};
   folly::Synchronized<State> state_;
@@ -337,11 +372,11 @@ class FaultInjector {
  * An error type that can be injected and is intended to cause the operation
  * to silently fail. This might be used to mimic EdenFS missing a request.
  *
- * For example, we want to test EdenFS missing notifications from ProjFS before
- * it exits in some tests. Blocking them will make it hard to kill eden since
- * part of Eden will be busy. Erroring will make Eden crash in debug mode. So
- * we want an error that EdenFS can catch, not crash on and thus pretend to have
- * missed the notification.
+ * For example, we want to test EdenFS missing notifications from ProjFS
+ * before it exits in some tests. Blocking them will make it hard to kill eden
+ * since part of Eden will be busy. Erroring will make Eden crash in debug
+ * mode. So we want an error that EdenFS can catch, not crash on and thus
+ * pretend to have missed the notification.
  */
 class QuietFault : public std::runtime_error {
  public:

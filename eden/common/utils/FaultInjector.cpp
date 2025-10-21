@@ -10,7 +10,9 @@
 #include <chrono>
 #include <string_view>
 
+#include <fmt/format.h>
 #include <folly/Overload.h>
+#include <folly/coro/Sleep.h>
 #include <folly/logging/xlog.h>
 
 using folly::SemiFuture;
@@ -53,6 +55,16 @@ ImmediateFuture<Unit> FaultInjector::checkAsyncImpl(
           [&](const FaultInjector::Block&) -> RV {
             XLOGF(DBG1, "block fault hit: {}, {}", keyClass, keyValue);
             return addBlockedFault(keyClass, keyValue);
+          },
+          [&](const FaultInjector::BlockWithCancel& blockWithCancel) -> RV {
+            XLOGF(
+                DBG1, "blockWithCancel fault hit: {}, {}", keyClass, keyValue);
+            return pollCancellationToken(
+                       keyClass,
+                       keyValue,
+                       blockWithCancel.cancellationToken,
+                       blockWithCancel.timeoutDuration)
+                .semi();
           },
           [&](const FaultInjector::Delay& delay) -> RV {
             XLOGF(DBG1, "delay fault hit: {}, {}", keyClass, keyValue);
@@ -105,6 +117,26 @@ void FaultInjector::injectBlock(
     size_t count) {
   XLOGF(INFO, "injectBlock({}, {}, count={})", keyClass, keyValueRegex, count);
   injectFault(keyClass, keyValueRegex, Block{}, count);
+}
+
+void FaultInjector::injectBlockWithCancel(
+    std::string_view keyClass,
+    std::string_view keyValueRegex,
+    folly::CancellationToken cancellationToken,
+    std::chrono::milliseconds timeout,
+    size_t count) {
+  XLOGF(
+      INFO,
+      "injectBlockWithCancel({}, {}, timeout={}ms, count={})",
+      keyClass,
+      keyValueRegex,
+      timeout.count(),
+      count);
+  injectFault(
+      keyClass,
+      keyValueRegex,
+      BlockWithCancel{std::move(cancellationToken), timeout},
+      count);
 }
 
 void FaultInjector::injectDelay(
@@ -396,4 +428,44 @@ bool FaultInjector::waitUntilBlocked(
   return getBlockedFaults(keyClass).size() != 0;
 }
 
+folly::coro::Task<folly::Unit> FaultInjector::pollCancellationToken(
+    std::string_view keyClass,
+    std::string_view keyValue,
+    folly::CancellationToken cancellationToken,
+    std::chrono::milliseconds timeout) {
+  XLOGF(
+      DBG3,
+      "pollCancellationToken({}, {}): cooperative polling for cancellation with timeout {}ms",
+      keyClass,
+      keyValue,
+      timeout.count());
+
+  auto startTime = std::chrono::steady_clock::now();
+
+  while (true) {
+    if (cancellationToken.isCancellationRequested()) {
+      XLOGF(
+          DBG3,
+          "pollCancellationToken({}, {}): cancellation detected",
+          keyClass,
+          keyValue);
+      throw folly::OperationCancelled();
+    }
+
+    auto elapsed = std::chrono::steady_clock::now() - startTime;
+    if (elapsed >= timeout) {
+      XLOGF(
+          DBG3,
+          "pollCancellationToken({}, {}): timeout after {}ms",
+          keyClass,
+          keyValue,
+          std::chrono::duration_cast<std::chrono::milliseconds>(elapsed)
+              .count());
+      throw std::runtime_error(
+          fmt::format("BlockWithCancel timeout after {}ms", timeout.count()));
+    }
+
+    co_await folly::coro::sleep(std::chrono::milliseconds{1});
+  }
+}
 } // namespace facebook::eden
