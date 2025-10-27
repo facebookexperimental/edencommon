@@ -225,8 +225,9 @@ class TraceBus : public std::enable_shared_from_this<TraceBus<TraceEvent>> {
   template <typename Fn>
   FOLLY_NODISCARD SubscriptionHandle
   subscribeFunction(std::string name, Fn&& fn) {
-    return subscribe(std::make_shared<FnTraceEventSubscriber<Fn, TraceEvent>>(
-        std::move(name), std::forward<Fn>(fn)));
+    return subscribe(
+        std::make_shared<FnTraceEventSubscriber<Fn, TraceEvent>>(
+            std::move(name), std::forward<Fn>(fn)));
   }
 
   /**

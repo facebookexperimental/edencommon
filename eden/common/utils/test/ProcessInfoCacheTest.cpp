@@ -146,12 +146,12 @@ TEST_F(Fixture, lookup_expires) {
 namespace facebook::eden {
 TEST(ProcessInfoCache, faultinjector) {
   FaultInjector faultInjector = FaultInjector{/*enabled=*/true};
-  ProcessInfoCache processInfoCache = ProcessInfoCache{
-      /*expiry=*/std::chrono::minutes{5},
-      /*threadLocalCache=*/nullptr,
-      /*clock=*/nullptr,
-      /*readInfo=*/nullptr,
-      /*faultInjector=*/&faultInjector};
+  ProcessInfoCache processInfoCache =
+      ProcessInfoCache{/*expiry=*/std::chrono::minutes{5},
+                       /*threadLocalCache=*/nullptr,
+                       /*clock=*/nullptr,
+                       /*readInfo=*/nullptr,
+                       /*faultInjector=*/&faultInjector};
 
   // prevent the process info cache from making any progress on looking up pids
   faultInjector.injectBlock("ProcessInfoCache::workerThread", ".*");
@@ -211,12 +211,12 @@ TEST(ProcessInfoCache, fetchUserInfo) {
 
 TEST(ProcessInfoCache, multipleLookups) {
   FaultInjector faultInjector = FaultInjector{/*enabled=*/true};
-  ProcessInfoCache processInfoCache = ProcessInfoCache{
-      /*expiry=*/std::chrono::minutes{5},
-      /*threadLocalCache=*/nullptr,
-      /*clock=*/nullptr,
-      /*readInfo=*/nullptr,
-      /*faultInjector=*/&faultInjector};
+  ProcessInfoCache processInfoCache =
+      ProcessInfoCache{/*expiry=*/std::chrono::minutes{5},
+                       /*threadLocalCache=*/nullptr,
+                       /*clock=*/nullptr,
+                       /*readInfo=*/nullptr,
+                       /*faultInjector=*/&faultInjector};
 
   // prevent the process info cache from making any progress on looking up pids
   faultInjector.injectBlock("ProcessInfoCache::workerThread", ".*");

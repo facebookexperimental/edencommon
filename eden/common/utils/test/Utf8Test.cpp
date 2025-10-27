@@ -44,8 +44,9 @@ TEST(Utf8String, ensureValidUtf8) {
   // overlong
   EXPECT_EQ(
       reinterpret_cast<const char*>(u8"foo\uFFFD\uFFFD\uFFFD\uFFFDbar"),
-      ensureValidUtf8("foo\xF0\x82\x82\xAC"
-                      "bar"));
+      ensureValidUtf8(
+          "foo\xF0\x82\x82\xAC"
+          "bar"));
   EXPECT_EQ(
       reinterpret_cast<const char*>(u8"\uFFFDprefix\uFFFD"),
       ensureValidUtf8("\xA0prefix\xB0"));

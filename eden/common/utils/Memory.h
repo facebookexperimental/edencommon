@@ -47,8 +47,9 @@ size_t estimateIndirectMemoryUsage(
 
   // Accumulate the estimated usage of the base nodes of the tree
 #if defined(_STL_TREE_H)
-  size_t usage = folly::goodMallocSize(sizeof(
-                     std::_Rb_tree_node<std::pair<const KeyType, ValueType>>)) *
+  size_t usage =
+      folly::goodMallocSize(
+          sizeof(std::_Rb_tree_node<std::pair<const KeyType, ValueType>>)) *
       entries.size();
 #elif defined(_XTREE_)
   size_t usage =
@@ -57,8 +58,9 @@ size_t estimateIndirectMemoryUsage(
       entries.size();
 #elif defined(_LIBCPP___TREE)
   size_t usage =
-      folly::goodMallocSize(sizeof(
-          std::__tree_node<std::pair<const KeyType, ValueType>, void*>)) *
+      folly::goodMallocSize(
+          sizeof(
+              std::__tree_node<std::pair<const KeyType, ValueType>, void*>)) *
       entries.size();
 #endif
 

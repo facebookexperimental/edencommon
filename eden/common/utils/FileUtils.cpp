@@ -123,9 +123,10 @@ folly::Try<void> writeToHandle(
     AbsolutePathPiece path) {
   // TODO(xavierd): This can only write up to 4GB.
   if (data.size() > std::numeric_limits<DWORD>::max()) {
-    return folly::Try<void>{std::invalid_argument(fmt::format(
-        FMT_STRING("files over 4GB can't be written to, size={}"),
-        data.size()))};
+    return folly::Try<void>{std::invalid_argument(
+        fmt::format(
+            FMT_STRING("files over 4GB can't be written to, size={}"),
+            data.size()))};
   }
 
   DWORD written = 0;
@@ -170,8 +171,10 @@ folly::Try<std::string> readFile(AbsolutePathPiece path, size_t num_bytes) {
 
   // TODO(xavierd): this can only read up to 4GB.
   if (num_bytes > std::numeric_limits<DWORD>::max()) {
-    return folly::Try<std::string>{std::invalid_argument(fmt::format(
-        FMT_STRING("files over 4GB can't be read, filesize={}"), num_bytes))};
+    return folly::Try<std::string>{std::invalid_argument(
+        fmt::format(
+            FMT_STRING("files over 4GB can't be read, filesize={}"),
+            num_bytes))};
   }
 
   std::string ret(num_bytes, 0);
@@ -336,8 +339,9 @@ folly::Try<std::vector<PathComponent>> getAllDirectoryEntryNames(
 }
 
 folly::Try<ReparseDataBuffer> getReparseData(HANDLE fd) {
-  auto buffer = ReparseDataBuffer(static_cast<REPARSE_DATA_BUFFER*>(
-      malloc(MAXIMUM_REPARSE_DATA_BUFFER_SIZE)));
+  auto buffer = ReparseDataBuffer(
+      static_cast<REPARSE_DATA_BUFFER*>(
+          malloc(MAXIMUM_REPARSE_DATA_BUFFER_SIZE)));
   if (!buffer) {
     return folly::Try<ReparseDataBuffer>(std::bad_alloc());
   }

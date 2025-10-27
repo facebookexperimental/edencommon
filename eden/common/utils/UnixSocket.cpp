@@ -93,8 +93,9 @@ class UnixSocket::Connector : private folly::EventHandler, folly::AsyncTimeout {
 
   void timeoutExpired() noexcept override {
     unregisterHandler();
-    callback_->connectError(folly::makeSystemErrorExplicit(
-        ETIMEDOUT, "connect timeout on unix socket"));
+    callback_->connectError(
+        folly::makeSystemErrorExplicit(
+            ETIMEDOUT, "connect timeout on unix socket"));
     delete this;
   }
 
@@ -340,8 +341,9 @@ void UnixSocket::send(IOBuf&& data, SendCallback* callback) noexcept {
 
 void UnixSocket::send(Message&& message, SendCallback* callback) noexcept {
   if (closeStarted_) {
-    callback->sendError(make_exception_wrapper<std::runtime_error>(
-        "cannot send a message on a closed UnixSocket"));
+    callback->sendError(
+        make_exception_wrapper<std::runtime_error>(
+            "cannot send a message on a closed UnixSocket"));
     return;
   }
   eventBase_->dcheckIsInEventBaseThread();
@@ -357,8 +359,9 @@ void UnixSocket::send(Message&& message, SendCallback* callback) noexcept {
   } catch (...) {
     auto ew = exception_wrapper{std::current_exception()};
     XLOGF(ERR, "error allocating a send queue entry: {}", ew.what());
-    callback->sendError(make_exception_wrapper<std::runtime_error>(
-        "cannot send a message on a closed UnixSocket"));
+    callback->sendError(
+        make_exception_wrapper<std::runtime_error>(
+            "cannot send a message on a closed UnixSocket"));
     return;
   }
 

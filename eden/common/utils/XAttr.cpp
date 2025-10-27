@@ -79,18 +79,19 @@ std::string fgetxattr(int fd, std::string_view name) {
 void fsetxattr(int fd, std::string_view name, std::string_view value) {
   std::string namestr{name};
 
-  folly::checkUnixError(::fsetxattr(
-      fd,
-      namestr.c_str(),
-      value.data(),
-      value.size()
+  folly::checkUnixError(
+      ::fsetxattr(
+          fd,
+          namestr.c_str(),
+          value.data(),
+          value.size()
 #ifdef __APPLE__
-          ,
-      0 // position
+              ,
+          0 // position
 #endif
-      ,
-      0 // allow create and replace
-      ));
+          ,
+          0 // allow create and replace
+          ));
 }
 
 std::vector<std::string> listxattr(std::string_view path) {

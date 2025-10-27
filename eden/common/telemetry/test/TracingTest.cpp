@@ -50,7 +50,9 @@ void ensureValidBlock() {
 
 TEST(Tracing, records_block) {
   enableTracing();
-  { TraceBlock block{"my_block"}; }
+  {
+    TraceBlock block{"my_block"};
+  }
 
   ensureValidBlock();
 }
@@ -126,7 +128,9 @@ TEST(Tracing, does_not_record_if_disabled) {
   (void)getAllTracepoints();
 
   disableTracing();
-  { TraceBlock block{"my_block"}; }
+  {
+    TraceBlock block{"my_block"};
+  }
   auto points = getAllTracepoints();
   ASSERT_EQ(0, points.size());
 }

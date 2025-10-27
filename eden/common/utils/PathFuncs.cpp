@@ -333,10 +333,11 @@ AbsolutePath expandUser(
     // path is not "~" and doesn't start with "~/".
     // Most likely the input is something like "~user" which
     // we don't support.
-    throw std::runtime_error(folly::to<std::string>(
-        "expandUser: can only ~-expand the current user. Input path was: `",
-        path,
-        "`"));
+    throw std::runtime_error(
+        folly::to<std::string>(
+            "expandUser: can only ~-expand the current user. Input path was: `",
+            path,
+            "`"));
   }
 
   if (!homeDir) {

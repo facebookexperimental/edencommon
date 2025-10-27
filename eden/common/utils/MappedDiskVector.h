@@ -171,8 +171,9 @@ class MappedDiskVector {
     for (size_t i = 0; i < versions.size(); ++i) {
       for (size_t j = i + 1; j < versions.size(); ++j) {
         if (versions[i] == versions[j]) {
-          throw std::logic_error(folly::to<std::string>(
-              "Duplicate VERSION detected in record types: ", versions[i]));
+          throw std::logic_error(
+              folly::to<std::string>(
+                  "Duplicate VERSION detected in record types: ", versions[i]));
         }
       }
     }
@@ -180,11 +181,12 @@ class MappedDiskVector {
     // Does this file match the primary record type? If so, we're done.
     if (T::VERSION == header.recordVersion) {
       if (sizeof(T) != header.recordSize) {
-        throw std::runtime_error(folly::to<std::string>(
-            "Record size does not match size recorded in file. Expected ",
-            sizeof(T),
-            " but file has ",
-            header.recordSize));
+        throw std::runtime_error(
+            folly::to<std::string>(
+                "Record size does not match size recorded in file. Expected ",
+                sizeof(T),
+                " but file has ",
+                header.recordSize));
       }
       return MappedDiskVector{
           std::move(file), st.st_size, header.entryCount, shouldPopulate};
@@ -196,12 +198,13 @@ class MappedDiskVector {
     for (size_t i = 0; i < sizes.size(); ++i) {
       if (versions[i + 1] == header.recordVersion) {
         if (sizes[i] != header.recordSize) {
-          throw std::runtime_error(folly::to<std::string>(
-              "Record version matches old record type but record size differs. ",
-              "Expected ",
-              sizes[i],
-              " but file has ",
-              header.recordSize));
+          throw std::runtime_error(
+              folly::to<std::string>(
+                  "Record version matches old record type but record size differs. ",
+                  "Expected ",
+                  sizes[i],
+                  " but file has ",
+                  header.recordSize));
         }
         return detail::Migrator<T, OldVersions...>::migrateFrom(
             path,
@@ -213,16 +216,17 @@ class MappedDiskVector {
       }
     }
 
-    throw std::runtime_error(folly::to<std::string>(
-        "Unexpected record size and version. "
-        "Expected size=",
-        sizeof(T),
-        ", version=",
-        T::VERSION,
-        " but got size=",
-        header.recordSize,
-        ", version=",
-        header.recordVersion));
+    throw std::runtime_error(
+        folly::to<std::string>(
+            "Unexpected record size and version. "
+            "Expected size=",
+            sizeof(T),
+            ", version=",
+            T::VERSION,
+            " but got size=",
+            header.recordSize,
+            ", version=",
+            header.recordVersion));
   }
 
   /**
@@ -325,11 +329,12 @@ class MappedDiskVector {
       auto newMap = mremap(map_, mapSizeInBytes_, newFileSize, MREMAP_MAYMOVE);
 #endif
       if (newMap == MAP_FAILED) {
-        folly::throwSystemError(folly::to<std::string>(
-            "mremap failed when growing capacity from ",
-            mapSizeInBytes_,
-            " to ",
-            newFileSize));
+        folly::throwSystemError(
+            folly::to<std::string>(
+                "mremap failed when growing capacity from ",
+                mapSizeInBytes_,
+                " to ",
+                newFileSize));
       }
 
 #ifdef __APPLE__

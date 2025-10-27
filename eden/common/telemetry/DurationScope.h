@@ -32,7 +32,7 @@ class DurationScope {
   DurationScope() = delete;
 
   template <typename T>
-  DurationScope(StatsPtr&& stats, StatsGroupBase::Duration T::*duration)
+  DurationScope(StatsPtr&& stats, StatsGroupBase::Duration T::* duration)
       : stats_{std::move(stats)},
         // This use of std::function won't allocate on libstdc++,
         // libc++, or Microsoft STL. All three have a couple pointers
@@ -44,7 +44,7 @@ class DurationScope {
   }
 
   template <typename T>
-  DurationScope(const StatsPtr& stats, StatsGroupBase::Duration T::*duration)
+  DurationScope(const StatsPtr& stats, StatsGroupBase::Duration T::* duration)
       : DurationScope{stats.copy(), duration} {}
 
   ~DurationScope() noexcept {
