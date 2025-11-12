@@ -77,4 +77,19 @@ void DynamicEvent::addStringVec(
   }
 }
 
+void DynamicEvent::addStringSet(
+    std::string name,
+    std::unordered_set<std::string> value) {
+  std::unordered_set<std::string> validatedValue;
+  for (auto&& v : value) {
+    validatedValue.emplace(ensureValidUtf8(v));
+  }
+  auto [iter, inserted] =
+      stringSets_.emplace(std::move(name), std::move(validatedValue));
+  if (!inserted) {
+    throw_<std::logic_error>(
+        "Attempted to insert duplicate string set: ", iter->first);
+  }
+}
+
 } // namespace facebook::eden

@@ -71,6 +71,21 @@ struct VectorTestLogEvent : public TestEvent {
   }
 };
 
+struct SetTestLogEvent : public TestEvent {
+  std::unordered_set<std::string> strset;
+
+  explicit SetTestLogEvent(std::unordered_set<std::string> strset)
+      : strset(std::move(strset)) {}
+
+  void populate(DynamicEvent& event) const override {
+    event.addStringSet("strset", strset);
+  }
+
+  char const* getType() const override {
+    return "set_test_event";
+  }
+};
+
 struct ScubaStructuredLoggerTest : public ::testing::Test {
   std::shared_ptr<TestScribeLogger> scribe{
       std::make_shared<TestScribeLogger>()};
@@ -185,4 +200,40 @@ TEST_F(ScubaStructuredLoggerTest, stringvec_test) {
   EXPECT_EQ(normvecs["strvec"][0].asString(), "a");
   EXPECT_EQ(normvecs["strvec"][1].asString(), "b");
   EXPECT_EQ(normvecs["strvec"][2].asString(), "c");
+}
+
+TEST_F(ScubaStructuredLoggerTest, empty_stringset_test) {
+  SetTestLogEvent event({});
+  logger.logEvent(event);
+  EXPECT_EQ(1, scribe->lines.size());
+  const auto& line = scribe->lines[0];
+  auto doc = folly::parseJson(line);
+  EXPECT_TRUE(doc.isObject());
+  EXPECT_THAT(keysOf(doc), UnorderedElementsAre("int", "normal", "tags"));
+
+  auto tags = doc["tags"];
+  EXPECT_TRUE(tags.isObject());
+  EXPECT_THAT(keysOf(tags), UnorderedElementsAre("strset"));
+  EXPECT_TRUE(tags["strset"].empty());
+}
+
+TEST_F(ScubaStructuredLoggerTest, stringset_test) {
+  SetTestLogEvent event({"a", "b", "c"});
+  logger.logEvent(event);
+  EXPECT_EQ(1, scribe->lines.size());
+  const auto& line = scribe->lines[0];
+  auto doc = folly::parseJson(line);
+  EXPECT_TRUE(doc.isObject());
+  EXPECT_THAT(keysOf(doc), UnorderedElementsAre("int", "normal", "tags"));
+
+  auto tags = doc["tags"];
+  EXPECT_TRUE(tags.isObject());
+  EXPECT_THAT(keysOf(tags), UnorderedElementsAre("strset"));
+  EXPECT_FALSE(tags["strset"].empty());
+  EXPECT_EQ(tags["strset"].size(), 3);
+  std::unordered_set<std::string> values;
+  for (const auto& item : tags["strset"]) {
+    values.insert(item.asString());
+  }
+  EXPECT_THAT(values, UnorderedElementsAre("c", "b", "a"));
 }

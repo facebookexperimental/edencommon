@@ -94,4 +94,14 @@ TEST(DynamicEventTest, AddStringVec) {
   EXPECT_EQ(stringVecMap.at("stringvec"), test);
   EXPECT_THROW(event.addStringVec("stringvec", {"qq"}), std::logic_error);
 }
+TEST(DynamicEventTest, AddStringSet) {
+  DynamicEvent event;
+  std::unordered_set<std::string> test = {"a", "b", "c"};
+  std::unordered_set<std::string> target = {"c", "b", "a"};
+  event.addStringSet("stringset", test);
+  const auto& stringSetMap = event.getStringSetMap();
+  EXPECT_EQ(stringSetMap.size(), 1);
+  EXPECT_EQ(stringSetMap.at("stringset"), target);
+  EXPECT_THROW(event.addStringSet("stringset", {"qq"}), std::logic_error);
+}
 } // namespace facebook::eden

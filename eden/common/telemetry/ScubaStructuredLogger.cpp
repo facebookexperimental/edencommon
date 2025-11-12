@@ -52,8 +52,12 @@ void ScubaStructuredLogger::logDynamicEvent(DynamicEvent event) {
 
   const auto& stringVecMap = event.getStringVecMap();
   if (!stringVecMap.empty()) {
-    // Special case handling for array
     document["normvector"] = folly::toDynamic(stringVecMap);
+  }
+
+  const auto& stringSetMap = event.getStringSetMap();
+  if (!stringSetMap.empty()) {
+    document["tags"] = folly::toDynamic(stringSetMap);
   }
 
   scribeLogger_->log(folly::toJson(document));

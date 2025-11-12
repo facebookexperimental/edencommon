@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace facebook::eden {
@@ -22,6 +23,8 @@ class DynamicEvent {
   using DoubleMap = std::unordered_map<std::string, double>;
   using StringVecMap =
       std::unordered_map<std::string, std::vector<std::string>>;
+  using StringSetMap =
+      std::unordered_map<std::string, std::unordered_set<std::string>>;
 
   DynamicEvent() = default;
   DynamicEvent(const DynamicEvent&) = default;
@@ -42,6 +45,7 @@ class DynamicEvent {
   void addString(std::string name, std::string value);
   void addDouble(std::string name, double value);
   void addStringVec(std::string name, std::vector<std::string> value);
+  void addStringSet(std::string name, std::unordered_set<std::string> value);
 
   /**
    * Convenience function that adds boolean values as integer 0 or 1.
@@ -62,14 +66,16 @@ class DynamicEvent {
   const StringVecMap& getStringVecMap() const {
     return stringVecs_;
   }
+  const StringSetMap& getStringSetMap() const {
+    return stringSets_;
+  }
 
  private:
-  // Due to limitations in the underlying log database, limit the field types to
-  // int64_t, double, string, and vector<string>
   IntMap ints_;
   StringMap strings_;
   DoubleMap doubles_;
   StringVecMap stringVecs_;
+  StringSetMap stringSets_;
 };
 
 } // namespace facebook::eden
