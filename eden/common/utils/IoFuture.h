@@ -32,7 +32,7 @@ namespace facebook::eden {
  * The returned Future will return the EventHandler::EventFlags that are now
  * ready.
  */
-FOLLY_NODISCARD folly::Future<int> waitForIO(
+[[nodiscard]] folly::Future<int> waitForIO(
     folly::EventBase* eventBase,
     int socket,
     int eventFlags,
@@ -60,7 +60,7 @@ class IoFuture : private folly::EventHandler, private folly::AsyncTimeout {
    * already completed.  If this occurs the Future returned by the previous
    * wait() call will be failed with an exception.
    */
-  FOLLY_NODISCARD folly::Future<int> wait(
+  [[nodiscard]] folly::Future<int> wait(
       int eventFlags,
       folly::TimeoutManager::timeout_type timeout);
 

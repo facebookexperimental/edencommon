@@ -33,12 +33,12 @@ class Try;
 namespace facebook::eden {
 
 /** Read up to num_bytes bytes from the file */
-FOLLY_NODISCARD folly::Try<std::string> readFile(
+[[nodiscard]] folly::Try<std::string> readFile(
     AbsolutePathPiece path,
     size_t num_bytes = std::numeric_limits<size_t>::max());
 
 /** Write data to the file pointed by path */
-FOLLY_NODISCARD folly::Try<void> writeFile(
+[[nodiscard]] folly::Try<void> writeFile(
     AbsolutePathPiece path,
     folly::ByteRange data);
 
@@ -46,7 +46,7 @@ FOLLY_NODISCARD folly::Try<void> writeFile(
  *
  * On failure, the content of the file is unchanged.
  */
-FOLLY_NODISCARD folly::Try<void> writeFileAtomic(
+[[nodiscard]] folly::Try<void> writeFileAtomic(
     AbsolutePathPiece path,
     folly::ByteRange data);
 
@@ -61,8 +61,8 @@ FOLLY_NODISCARD folly::Try<void> writeFileAtomic(
  * FILE_SHARE_DELETE. This sharing flags allows the directory to be
  * renamed/deleted while it is being iterated on.
  */
-FOLLY_NODISCARD folly::Try<std::vector<PathComponent>>
-getAllDirectoryEntryNames(AbsolutePathPiece path);
+[[nodiscard]] folly::Try<std::vector<PathComponent>> getAllDirectoryEntryNames(
+    AbsolutePathPiece path);
 
 #ifdef _WIN32
 

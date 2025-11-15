@@ -235,7 +235,7 @@ class ImmediateFuture {
    *   ImmediateFuture<T> immFut = ...;
    *   folly::Future<T> fut = std::move(fut).semi().via(executor);
    */
-  FOLLY_NODISCARD folly::SemiFuture<T> semi() &&;
+  [[nodiscard]] folly::SemiFuture<T> semi() &&;
 
   /**
    * Wait for the future to complete and return its value or throw its
