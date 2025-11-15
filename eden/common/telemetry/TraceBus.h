@@ -216,15 +216,16 @@ class TraceBus : public std::enable_shared_from_this<TraceBus<TraceEvent>> {
    * For example, to safely capture raw pointers like `this` in a closure, the
    * TraceBus must be the final member of a `final` class.
    */
-  FOLLY_NODISCARD SubscriptionHandle
-  subscribe(std::shared_ptr<Subscriber> subscriber);
+  [[nodiscard]] SubscriptionHandle subscribe(
+      std::shared_ptr<Subscriber> subscriber);
 
   /**
    * Convenient `subscribe` wrapper that registers a function object.
    */
   template <typename Fn>
-  FOLLY_NODISCARD SubscriptionHandle
-  subscribeFunction(std::string name, Fn&& fn) {
+  [[nodiscard]] SubscriptionHandle subscribeFunction(
+      std::string name,
+      Fn&& fn) {
     return subscribe(
         std::make_shared<FnTraceEventSubscriber<Fn, TraceEvent>>(
             std::move(name), std::forward<Fn>(fn)));

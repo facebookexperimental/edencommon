@@ -107,7 +107,7 @@ class FaultInjector {
    * The keyValues parameters are handled the same as in check(), above.
    */
   template <typename... Args>
-  FOLLY_NODISCARD ImmediateFuture<folly::Unit> checkAsync(
+  [[nodiscard]] ImmediateFuture<folly::Unit> checkAsync(
       std::string_view keyClass,
       Args&&... keyValues) {
     if (UNLIKELY(enabled_)) {
@@ -126,7 +126,7 @@ class FaultInjector {
    *
    */
   template <typename... Args>
-  FOLLY_NODISCARD ImmediateFuture<folly::Unit> waitForCancelOrTimeout(
+  [[nodiscard]] ImmediateFuture<folly::Unit> waitForCancelOrTimeout(
       std::string_view keyClass,
       folly::CancellationToken cancellationToken,
       Args&&... keyValues) {
@@ -151,7 +151,7 @@ class FaultInjector {
    * The keyValues parameters are handled the same as in check(), above.
    */
   template <typename... Args>
-  FOLLY_NODISCARD folly::Try<folly::Unit> checkTry(
+  [[nodiscard]] folly::Try<folly::Unit> checkTry(
       std::string_view keyClass,
       Args&&... keyValues) {
     if (UNLIKELY(enabled_)) {
@@ -360,7 +360,7 @@ class FaultInjector {
     return s;
   }
 
-  FOLLY_NODISCARD ImmediateFuture<folly::Unit> checkAsyncImpl(
+  [[nodiscard]] ImmediateFuture<folly::Unit> checkAsyncImpl(
       std::string_view keyClass,
       std::string_view keyValue);
 
@@ -377,10 +377,10 @@ class FaultInjector {
       size_t count);
   FaultBehavior findFault(std::string_view keyClass, std::string_view keyValue);
 
-  FOLLY_NODISCARD folly::SemiFuture<folly::Unit> addBlockedFault(
+  [[nodiscard]] folly::SemiFuture<folly::Unit> addBlockedFault(
       std::string_view keyClass,
       std::string_view keyValue);
-  FOLLY_NODISCARD std::vector<BlockedCheck> extractBlockedChecks(
+  [[nodiscard]] std::vector<BlockedCheck> extractBlockedChecks(
       std::string_view keyClass,
       std::string_view keyValueRegex);
   size_t unblockAllImpl(std::optional<folly::exception_wrapper> error);
@@ -391,7 +391,7 @@ class FaultInjector {
    * Throws OperationCancelled if cancelled
    * Throws std::runtime_error if timeout occurs
    */
-  FOLLY_NODISCARD folly::coro::Task<folly::Unit> pollCancellationToken(
+  [[nodiscard]] folly::coro::Task<folly::Unit> pollCancellationToken(
       std::string_view keyClass,
       std::string_view keyValue,
       folly::CancellationToken cancellationToken,

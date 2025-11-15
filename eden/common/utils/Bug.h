@@ -129,7 +129,7 @@ class EdenBugThrow {
 template <typename T>
 class EdenBugTry {
  public:
-  FOLLY_NODISCARD
+  [[nodiscard]]
   folly::Try<T> operator&(EdenBug&& bug) const {
     return folly::Try<T>(bug.toException());
   }
@@ -137,7 +137,7 @@ class EdenBugTry {
 
 class EdenBugException {
  public:
-  FOLLY_NODISCARD
+  [[nodiscard]]
   folly::exception_wrapper operator&(EdenBug&& bug) const {
     return bug.toException();
   }
