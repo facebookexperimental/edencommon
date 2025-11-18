@@ -2285,13 +2285,13 @@ inline std::string absolutePathToThrift(AbsolutePathPiece path) {
  * Convenient literals for constructing path types.
  */
 inline namespace path_literals {
-constexpr inline PathComponentPiece operator"" _pc(
+constexpr inline PathComponentPiece operator""_pc(
     const char* str,
     size_t len) noexcept {
   return PathComponentPiece{std::string_view{str, len}};
 }
 
-inline RelativePathPiece operator"" _relpath(
+inline RelativePathPiece operator""_relpath(
     const char* str,
     size_t len) noexcept {
   return RelativePathPiece{std::string_view{str, len}};
