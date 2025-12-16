@@ -825,7 +825,7 @@ void UnixSocket::processReceivedFiles(struct cmsghdr* cmsg) {
     folly::checkPosixError(flags);
     folly::checkPosixError(fcntl(fd, F_SETFD, flags | FD_CLOEXEC));
 #endif
-    recvMessage_.files.push_back(File{fd, /* ownsFd */ true});
+    recvMessage_.files.emplace_back(fd, /* ownsFd */ true);
   }
 }
 

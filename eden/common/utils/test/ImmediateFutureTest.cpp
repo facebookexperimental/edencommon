@@ -288,8 +288,8 @@ TEST(
 
 TEST(ImmediateFuture, collectAllImmediate) {
   std::vector<ImmediateFuture<int>> vec;
-  vec.push_back(ImmediateFuture<int>{42});
-  vec.push_back(ImmediateFuture<int>{43});
+  vec.emplace_back(42);
+  vec.emplace_back(43);
 
   auto fut = collectAll(std::move(vec));
   EXPECT_NE(fut.debugIsImmediate(), detail::kImmediateFutureAlwaysDefer);
@@ -303,10 +303,10 @@ TEST(ImmediateFuture, collectAllSemi) {
   std::vector<ImmediateFuture<int>> vec;
 
   auto [promise1, semiFut1] = folly::makePromiseContract<int>();
-  vec.push_back(ImmediateFuture<int>{std::move(semiFut1)});
+  vec.emplace_back(std::move(semiFut1));
 
   auto [promise2, semiFut2] = folly::makePromiseContract<int>();
-  vec.push_back(ImmediateFuture<int>{std::move(semiFut2)});
+  vec.emplace_back(std::move(semiFut2));
 
   auto fut = collectAll(std::move(vec));
   EXPECT_FALSE(fut.isReady());
@@ -323,8 +323,8 @@ TEST(ImmediateFuture, collectAllMixed) {
   std::vector<ImmediateFuture<int>> vec;
 
   auto [promise, semiFut] = folly::makePromiseContract<int>();
-  vec.push_back(ImmediateFuture<int>{std::move(semiFut)});
-  vec.push_back(ImmediateFuture<int>{43});
+  vec.emplace_back(std::move(semiFut));
+  vec.emplace_back(43);
 
   auto fut = collectAll(std::move(vec));
   EXPECT_FALSE(fut.isReady());
@@ -346,7 +346,7 @@ TEST(ImmediateFuture, collectUncopyable) {
     Uncopyable& operator=(const Uncopyable&) = delete;
   };
   std::vector<ImmediateFuture<Uncopyable>> vec;
-  vec.push_back(Uncopyable{});
+  vec.emplace_back(Uncopyable{});
 
   auto fut = collectAll(std::move(vec));
   EXPECT_NE(fut.isReady(), detail::kImmediateFutureAlwaysDefer);
@@ -356,8 +356,8 @@ TEST(ImmediateFuture, collectAllOrdering) {
   std::vector<ImmediateFuture<int>> vec;
 
   auto [promise, semiFut] = folly::makePromiseContract<int>();
-  vec.push_back(ImmediateFuture<int>{std::move(semiFut)});
-  vec.push_back(ImmediateFuture<int>{43});
+  vec.emplace_back(std::move(semiFut));
+  vec.emplace_back(43);
 
   auto fut = collectAll(std::move(vec));
   EXPECT_FALSE(fut.isReady());
@@ -532,7 +532,7 @@ TEST(ImmediateFuture, collectAllSafeTupleValid) {
 
 TEST(ImmediateFuture, collectAllSafeVector) {
   std::vector<ImmediateFuture<int>> vec;
-  vec.push_back(ImmediateFuture<int>{42});
+  vec.emplace_back(42);
   vec.push_back(makeImmediateFuture<int>(std::logic_error("Test exception")));
 
   auto fut = collectAllSafe(std::move(vec));
@@ -569,8 +569,8 @@ TEST(ImmediateFuture, collectAllSafeVectorError) {
 
 TEST(ImmediateFuture, collectAllSafeVectorValid) {
   std::vector<ImmediateFuture<int>> vec;
-  vec.push_back(ImmediateFuture<int>{42});
-  vec.push_back(ImmediateFuture<int>{43});
+  vec.emplace_back(42);
+  vec.emplace_back(43);
 
   auto future = collectAllSafe(std::move(vec));
   EXPECT_NE(future.isReady(), detail::kImmediateFutureAlwaysDefer);
@@ -583,8 +583,8 @@ TEST(ImmediateFuture, collectAllSafeVectorValid) {
 
 TEST(ImmediateFuture, unit_method) {
   std::vector<ImmediateFuture<int>> vec;
-  vec.push_back(ImmediateFuture<int>{42});
-  vec.push_back(ImmediateFuture<int>{43});
+  vec.emplace_back(42);
+  vec.emplace_back(43);
 
   auto future = collectAllSafe(std::move(vec)).unit();
   EXPECT_NE(future.isReady(), detail::kImmediateFutureAlwaysDefer);
