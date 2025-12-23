@@ -427,7 +427,7 @@ UnixSocket::SendQueueEntry::SendQueueEntry(
 void UnixSocket::SendQueueDestructor::operator()(SendQueueEntry* entry) const {
 #if __cpp_sized_deallocation
   size_t allocationSize =
-      sizeof(SendQueueEntry) + sizeof(struct iovec[entry->iovCount]);
+      sizeof(SendQueueEntry) + sizeof(struct iovec) * entry->iovCount;
   entry->~SendQueueEntry();
   operator delete(entry, allocationSize);
 #else
@@ -445,7 +445,7 @@ UnixSocket::SendQueuePtr UnixSocket::createSendQueueEntry(
   enumerateIovecs(message.data, [&](const auto&) { ++iovecElements; });
 
   size_t allocationSize =
-      sizeof(SendQueueEntry) + sizeof(struct iovec[iovecElements]);
+      sizeof(SendQueueEntry) + sizeof(struct iovec) * iovecElements;
   SendQueuePtr entry;
   void* data = operator new(allocationSize);
   try {
