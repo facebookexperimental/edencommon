@@ -469,9 +469,9 @@ void UnixSocket::serializeHeader(
     uint32_t numFiles) {
   IOBuf buf(IOBuf::WRAP_BUFFER, ByteRange{buffer});
   RWPrivateCursor cursor(&buf);
-  cursor.writeBE(static_cast<uint64_t>(kProtocolID));
-  cursor.writeBE(static_cast<uint32_t>(dataSize));
-  cursor.writeBE(static_cast<uint32_t>(numFiles));
+  cursor.writeBE<uint64_t>(static_cast<uint64_t>(kProtocolID));
+  cursor.writeBE<uint32_t>(static_cast<uint32_t>(dataSize));
+  cursor.writeBE<uint32_t>(static_cast<uint32_t>(numFiles));
   XCHECK(cursor.isAtEnd());
 }
 
