@@ -304,7 +304,7 @@ bool canMountTmpfs() {
 }
 } // namespace
 
-TEST_F(MappedDiskVectorTest, emplace_back_sigbus_on_enospc) {
+TEST_F(MappedDiskVectorTest, emplace_back_throws_on_enospc) {
   if (!canMountTmpfs()) {
     GTEST_SKIP() << "User namespaces / tmpfs mount not available";
   }
@@ -343,15 +343,14 @@ TEST_F(MappedDiskVectorTest, emplace_back_sigbus_on_enospc) {
           mdv.emplace_back(i);
         }
 
-        // emplace_back must grow the file:
-        //   1. ftruncate to 2MB -> succeeds (tmpfs updates metadata only)
-        //   2. mremap to 2MB -> succeeds (virtual memory only)
-        //   3. placement new at end_ -> page fault -> no tmpfs space -> SIGBUS
-        mdv.emplace_back(99ull);
-
-        _exit(0);
+        try {
+          mdv.emplace_back(99ull);
+          _exit(2); // Should have thrown.
+        } catch (const std::system_error&) {
+          _exit(0); // Success: clean error instead of SIGBUS.
+        }
       },
-      testing::KilledBySignal(SIGBUS),
+      testing::ExitedWithCode(0),
       "");
 }
 #endif // __linux__

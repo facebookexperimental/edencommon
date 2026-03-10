@@ -18,6 +18,7 @@
 #include <folly/logging/xlog.h>
 
 #ifndef _WIN32
+#include <fcntl.h>
 #include <sys/mman.h>
 #endif
 
@@ -313,9 +314,7 @@ class MappedDiskVector {
       // Always keep the file size a whole number of pages.
       XCHECK_EQ(0ul, newFileSize % detail::kPageSize);
 
-      if (-1 == folly::ftruncateNoInt(file_.fd(), newFileSize)) {
-        folly::throwSystemError("ftruncateNoInt failed when growing capacity");
-      }
+      extendFile(file_.fd(), newFileSize);
 
 #ifdef __APPLE__
       auto newMap = mmap(
@@ -392,6 +391,28 @@ class MappedDiskVector {
 
   static constexpr size_t GROWTH_IN_PAGES = 256;
 
+  // Extend a file to newSize bytes, pre-allocating disk blocks where
+  // supported. Using fallocate detects ENOSPC early with a clean error
+  // instead of creating a sparse file that causes SIGBUS on write.
+  static void extendFile(int fd, off_t newSize) {
+#ifdef __linux__
+    if (fallocate(fd, 0, 0, newSize) != 0) {
+      if (errno == EOPNOTSUPP) {
+        // Filesystem doesn't support fallocate, fall back to ftruncate.
+        if (folly::ftruncateNoInt(fd, newSize) != 0) {
+          folly::throwSystemError("failed to extend file");
+        }
+      } else {
+        folly::throwSystemError("fallocate failed when extending file");
+      }
+    }
+#else
+    if (folly::ftruncateNoInt(fd, newSize) != 0) {
+      folly::throwSystemError("failed to extend file");
+    }
+#endif
+  }
+
   static MappedDiskVector initializeFromScratch(folly::File file) {
     // Start the file large enough to handle the header and a little under one
     // round one of growth.
@@ -399,10 +420,7 @@ class MappedDiskVector {
     static_assert(
         initialSize >= sizeof(Header) + sizeof(T),
         "Initial size must include enough space for the header and at least one element.");
-    if (-1 == folly::ftruncateNoInt(file.fd(), initialSize)) {
-      folly::throwSystemError(
-          "failed to initialize MappedDiskVector: ftruncate() failed");
-    }
+    extendFile(file.fd(), initialSize);
 
     Header header;
     header.magic = kMagic;
@@ -441,10 +459,7 @@ class MappedDiskVector {
             "Warning: MappedDiskVector file size not multiple of page size: {}",
             fileSize);
       }
-      if (folly::ftruncateNoInt(file_.fd(), desiredSize)) {
-        folly::throwSystemError(
-            "ftruncateNoInt failed when rounding up to page size");
-      }
+      extendFile(file_.fd(), desiredSize);
     }
 
     // Call readahead() here?  Offer it as optional functionality?
