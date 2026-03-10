@@ -9,6 +9,14 @@
 
 #include "eden/common/utils/MappedDiskVector.h"
 
+#include <fcntl.h>
+#include <sched.h>
+#include <signal.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
 #include <folly/portability/GTest.h>
 #include <folly/test/TestUtils.h>
 #include <folly/testing/TestUtil.h>
@@ -230,6 +238,123 @@ TEST_F(MappedDiskVectorTest, migrates_across_multiple_versions) {
     EXPECT_EQ(3, mdv[1].conversionCount);
   }
 }
+
+#ifdef __linux__
+namespace {
+// Set up uid/gid mapping after unshare(CLONE_NEWUSER). Must pass the
+// original uid/gid from BEFORE the unshare, since getuid()/getgid()
+// return the overflow IDs (65534) inside the new namespace.
+bool setupIdMaps(uid_t realUid, gid_t realGid) {
+  auto writeFile = [](const char* path, const char* content) -> bool {
+    int fd = ::open(path, O_WRONLY);
+    if (fd < 0) {
+      return false;
+    }
+    bool ok = ::write(fd, content, strlen(content)) > 0;
+    ::close(fd);
+    return ok;
+  };
+
+  char buf[64];
+
+  snprintf(buf, sizeof(buf), "0 %d 1\n", realUid);
+  if (!writeFile("/proc/self/uid_map", buf)) {
+    return false;
+  }
+
+  // Must deny setgroups before writing gid_map.
+  if (!writeFile("/proc/self/setgroups", "deny\n")) {
+    return false;
+  }
+
+  snprintf(buf, sizeof(buf), "0 %d 1\n", realGid);
+  return writeFile("/proc/self/gid_map", buf);
+}
+
+// Check whether we can create a user+mount namespace (needed for the ENOSPC
+// test). We fork a child to test this so we don't affect the parent.
+bool canMountTmpfs() {
+  uid_t uid = getuid();
+  gid_t gid = getgid();
+  pid_t pid = fork();
+  if (pid < 0) {
+    return false;
+  }
+  if (pid == 0) {
+    if (unshare(CLONE_NEWUSER | CLONE_NEWNS) != 0) {
+      _exit(1);
+    }
+    if (!setupIdMaps(uid, gid)) {
+      _exit(1);
+    }
+    char dir[] = "/tmp/mdv_probe_XXXXXX";
+    if (!mkdtemp(dir)) {
+      _exit(1);
+    }
+    int rc = mount("tmpfs", dir, "tmpfs", 0, "size=4k");
+    if (rc == 0) {
+      umount(dir);
+    }
+    rmdir(dir);
+    _exit(rc == 0 ? 0 : 1);
+  }
+  int status = 0;
+  waitpid(pid, &status, 0);
+  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+} // namespace
+
+TEST_F(MappedDiskVectorTest, emplace_back_sigbus_on_enospc) {
+  if (!canMountTmpfs()) {
+    GTEST_SKIP() << "User namespaces / tmpfs mount not available";
+  }
+
+  auto mountpoint = (tmpDir.path() / "enospc").string();
+  ::mkdir(mountpoint.c_str(), 0700);
+
+  EXPECT_EXIT(
+      {
+        signal(SIGBUS, SIG_DFL);
+
+        uid_t uid = getuid();
+        gid_t gid = getgid();
+
+        // Create a user+mount namespace so we can mount tmpfs without root.
+        if (unshare(CLONE_NEWUSER | CLONE_NEWNS) != 0) {
+          _exit(1);
+        }
+        if (!setupIdMaps(uid, gid)) {
+          _exit(1);
+        }
+
+        // Mount a tmpfs exactly the size of the initial MDV file (1MB).
+        // This leaves no room for growth.
+        if (mount("tmpfs", mountpoint.c_str(), "tmpfs", 0, "size=1048576") !=
+            0) {
+          _exit(1);
+        }
+
+        auto path = mountpoint + "/test.mdv";
+        auto mdv = MappedDiskVector<U64>::open(path);
+
+        // Fill to capacity, consuming the entire 1MB tmpfs.
+        size_t cap = mdv.capacity();
+        for (uint64_t i = 0; i < cap; ++i) {
+          mdv.emplace_back(i);
+        }
+
+        // emplace_back must grow the file:
+        //   1. ftruncate to 2MB -> succeeds (tmpfs updates metadata only)
+        //   2. mremap to 2MB -> succeeds (virtual memory only)
+        //   3. placement new at end_ -> page fault -> no tmpfs space -> SIGBUS
+        mdv.emplace_back(99ull);
+
+        _exit(0);
+      },
+      testing::KilledBySignal(SIGBUS),
+      "");
+}
+#endif // __linux__
 
 TEST_F(MappedDiskVectorTest, migrate_overwrites_existing_tmp_file) {
   {
