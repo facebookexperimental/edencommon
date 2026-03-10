@@ -13,6 +13,38 @@
 
 #ifdef _WIN32
 
+template <>
+struct fmt::formatter<GUID> {
+  constexpr auto parse(fmt::format_parse_context& ctx) {
+    auto it = ctx.begin();
+    auto end = ctx.end();
+    if (it != end && *it != '}') {
+      // Handle custom format specifiers here
+      // Currently none are supported.
+    }
+    return it;
+  }
+
+  template <typename FormatContext>
+  auto format(const GUID& guid, FormatContext& ctx) const {
+    return fmt::format_to(
+        ctx.out(),
+        FMT_STRING(
+            "{{{:08X}-{:04X}-{:04X}-{:02X}{:02X}-{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}}}"),
+        guid.Data1,
+        guid.Data2,
+        guid.Data3,
+        guid.Data4[0],
+        guid.Data4[1],
+        guid.Data4[2],
+        guid.Data4[3],
+        guid.Data4[4],
+        guid.Data4[5],
+        guid.Data4[6],
+        guid.Data4[7]);
+  }
+};
+
 namespace facebook::eden {
 
 class Guid {
@@ -52,20 +84,7 @@ class Guid {
   }
 
   std::string toString() const noexcept {
-    return fmt::format(
-        FMT_STRING(
-            "{{{:08X}-{:04X}-{:04X}-{:02X}{:02X}-{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}}}"),
-        guid_.Data1,
-        guid_.Data2,
-        guid_.Data3,
-        guid_.Data4[0],
-        guid_.Data4[1],
-        guid_.Data4[2],
-        guid_.Data4[3],
-        guid_.Data4[4],
-        guid_.Data4[5],
-        guid_.Data4[6],
-        guid_.Data4[7]);
+    return fmt::to_string(guid_);
   }
 
  private:
@@ -85,10 +104,10 @@ struct hash<facebook::eden::Guid> {
 } // namespace std
 
 template <>
-struct fmt::formatter<facebook::eden::Guid> : formatter<string_view> {
-  template <typename Context>
-  auto format(const facebook::eden::Guid& guid, Context& ctx) const {
-    return formatter<string_view>::format(guid.toString(), ctx);
+struct fmt::formatter<facebook::eden::Guid> : public fmt::formatter<GUID> {
+  template <typename FormatContext>
+  auto format(const facebook::eden::Guid& guid, FormatContext& ctx) const {
+    return fmt::formatter<GUID>::format(guid.getGuid(), ctx);
   }
 };
 
