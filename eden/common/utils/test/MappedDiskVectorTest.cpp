@@ -353,6 +353,49 @@ TEST_F(MappedDiskVectorTest, emplace_back_throws_on_enospc) {
       testing::ExitedWithCode(0),
       "");
 }
+
+TEST_F(MappedDiskVectorTest, populate_sigbus_on_truncated_file) {
+  // Reproduce a SIGBUS crash that occurs when the backing file is truncated
+  // (or corrupted, e.g. btrfs checksum failure) after mmap. The callback
+  // truncates the file between mmap and population, simulating a corrupted
+  // backing store. Without a fix, accessing the truncated pages causes SIGBUS.
+  {
+    auto mdv = MappedDiskVector<U64>::open(mdvPath);
+    // Add enough entries to span multiple pages.
+    for (uint64_t i = 0; i < 2048; ++i) {
+      mdv.emplace_back(i);
+    }
+  }
+
+  EXPECT_EXIT(
+      {
+        signal(SIGBUS, SIG_DFL);
+
+        auto path = mdvPath;
+        auto mdv = MappedDiskVector<U64>::open(
+            path,
+            /*shouldPopulate=*/true,
+            [&]() {
+              // Truncate the file to just the header after mmap but before
+              // population, simulating a corrupted/truncated backing store.
+              int fd = ::open(path.c_str(), O_RDWR);
+              if (fd < 0) {
+                _exit(1);
+              }
+              ftruncate(fd, 32);
+              ::close(fd);
+            });
+
+        // Try to read an entry — this should SIGBUS since the pages
+        // backing the entries have been truncated away.
+        volatile uint64_t v = mdv[1000];
+        (void)v;
+
+        _exit(2); // Should not reach here.
+      },
+      testing::KilledBySignal(SIGBUS),
+      "");
+}
 #endif // __linux__
 
 TEST_F(MappedDiskVectorTest, migrate_overwrites_existing_tmp_file) {

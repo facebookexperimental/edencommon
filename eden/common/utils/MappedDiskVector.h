@@ -8,6 +8,7 @@
 #pragma once
 
 #include <folly/portability/Unistd.h>
+#include <functional>
 #include <type_traits>
 
 #include <eden/common/utils/Bug.h>
@@ -127,7 +128,8 @@ class MappedDiskVector {
   template <typename... OldVersions>
   static MappedDiskVector open(
       folly::StringPiece path,
-      bool shouldPopulate = false) {
+      bool shouldPopulate = false,
+      std::function<void()> afterMmap = nullptr) {
     folly::File file{path, O_RDWR | O_CREAT | O_CLOEXEC, 0600};
 
     if (!file.try_lock()) {
@@ -169,6 +171,7 @@ class MappedDiskVector {
     // This check could be done at compile time.
     static constexpr std::array<uint32_t, 1 + sizeof...(OldVersions)> versions =
         {T::VERSION, OldVersions::VERSION...};
+
     for (size_t i = 0; i < versions.size(); ++i) {
       for (size_t j = i + 1; j < versions.size(); ++j) {
         if (versions[i] == versions[j]) {
@@ -190,7 +193,11 @@ class MappedDiskVector {
                 header.recordSize));
       }
       return MappedDiskVector{
-          std::move(file), st.st_size, header.entryCount, shouldPopulate};
+          std::move(file),
+          st.st_size,
+          header.entryCount,
+          shouldPopulate,
+          std::move(afterMmap)};
     }
 
     // Try to migrate from an old record format if any match.
@@ -445,7 +452,8 @@ class MappedDiskVector {
       folly::File file,
       off_t fileSize,
       size_t currentEntryCount,
-      bool populate)
+      bool populate,
+      const std::function<void()>& afterMmap = nullptr)
       : file_(std::move(file)) {
     // It's worth keeping the file and mapping a whole number of pages to
     // avoid wasting an partial page at the end.  Note that this is an
@@ -478,6 +486,10 @@ class MappedDiskVector {
         0);
     if (map == MAP_FAILED) {
       folly::throwSystemError("mmap failed on file open");
+    }
+
+    if (afterMmap) {
+      afterMmap();
     }
 
 #ifndef MAP_POPULATE
