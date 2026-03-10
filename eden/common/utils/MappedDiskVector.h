@@ -20,6 +20,7 @@
 
 #ifndef _WIN32
 #include <fcntl.h>
+#include <folly/portability/SysMman.h>
 #include <sys/mman.h>
 #endif
 
@@ -477,11 +478,7 @@ class MappedDiskVector {
         nullptr,
         desiredSize,
         PROT_READ | PROT_WRITE,
-        MAP_SHARED
-#ifdef MAP_POPULATE
-            | (populate ? MAP_POPULATE : 0)
-#endif
-            ,
+        MAP_SHARED,
         file_.fd(),
         0);
     if (map == MAP_FAILED) {
@@ -492,7 +489,18 @@ class MappedDiskVector {
       afterMmap();
     }
 
-#ifndef MAP_POPULATE
+#ifdef MADV_POPULATE_READ
+    // Pre-fault all pages and detect I/O errors (e.g. btrfs checksum
+    // failures) as exceptions instead of SIGBUS. MADV_POPULATE_READ was
+    // added in Linux 5.14; EINVAL means unsupported, which we ignore.
+    if (populate && madvise(map, desiredSize, MADV_POPULATE_READ) != 0 &&
+        errno != EINVAL) {
+      int err = errno;
+      munmap(map, desiredSize);
+      folly::throwSystemErrorExplicit(
+          err, "failed to populate MappedDiskVector");
+    }
+#else
     (void)populate;
 #endif
 
