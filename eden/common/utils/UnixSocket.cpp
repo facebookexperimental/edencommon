@@ -302,7 +302,8 @@ uid_t UnixSocket::getRemoteUID() {
   constexpr int optname = LOCAL_PEERCRED;
   constexpr int level = SOL_LOCAL;
 #else
-  static_assert("getting credentials not supported on this platform");
+  // static_assert("getting credentials not supported on this platform"); //
+  // todo: can't write code this way
 #endif
 
   socklen_t len = sizeof(cred);
