@@ -87,6 +87,43 @@ ImmediateFuture<Unit> FaultInjector::checkAsyncImpl(
       behavior);
 }
 
+folly::coro::now_task<Unit> FaultInjector::co_checkAsyncImpl(
+    std::string_view keyClass,
+    std::string_view keyValue) {
+  auto behavior = findFault(keyClass, keyValue);
+  if (std::holds_alternative<Unit>(behavior)) {
+    co_return folly::unit;
+  } else if (std::holds_alternative<FaultInjector::Block>(behavior)) {
+    XLOGF(DBG1, "block fault hit: {}, {}", keyClass, keyValue);
+    co_await addBlockedFault(keyClass, keyValue);
+    co_return folly::unit;
+  } else if (
+      auto* blockWithCancel =
+          std::get_if<FaultInjector::BlockWithCancel>(&behavior)) {
+    XLOGF(DBG1, "blockWithCancel fault hit: {}, {}", keyClass, keyValue);
+    co_await pollCancellationToken(
+        keyClass,
+        keyValue,
+        blockWithCancel->cancellationToken,
+        blockWithCancel->timeoutDuration);
+    co_return folly::unit;
+  } else if (auto* delay = std::get_if<FaultInjector::Delay>(&behavior)) {
+    XLOGF(DBG1, "delay fault hit: {}, {}", keyClass, keyValue);
+    co_await folly::coro::sleep(delay->duration);
+    if (delay->error.has_value()) {
+      delay->error.value().throw_exception();
+    }
+    co_return folly::unit;
+  } else if (auto* error = std::get_if<folly::exception_wrapper>(&behavior)) {
+    XLOGF(DBG1, "error fault hit: {}, {}", keyClass, keyValue);
+    error->throw_exception();
+  } else if (std::holds_alternative<FaultInjector::Kill>(behavior)) {
+    XLOGF(DBG1, "kill fault hit: {}, {}", keyClass, keyValue);
+    abort();
+  }
+  co_return folly::unit;
+}
+
 folly::Try<Unit> FaultInjector::checkTryImpl(
     std::string_view keyClass,
     std::string_view keyValue) {

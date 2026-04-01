@@ -13,6 +13,7 @@
 #include <folly/Synchronized.h>
 #include <folly/container/F14Map.h>
 #include <folly/coro/Task.h>
+#include <folly/coro/safe/NowTask.h>
 #include <chrono>
 #include <optional>
 #include <string_view>
@@ -115,6 +116,20 @@ class FaultInjector {
           keyClass, constructKey(std::forward<Args>(keyValues)...));
     }
     return folly::unit;
+  }
+
+  /**
+   * Coroutine version of checkAsync.
+   */
+  template <typename... Args>
+  [[nodiscard]] folly::coro::now_task<folly::Unit> co_checkAsync(
+      std::string_view keyClass,
+      Args&&... keyValues) {
+    if (UNLIKELY(enabled_)) {
+      co_return co_await co_checkAsyncImpl(
+          keyClass, constructKey(std::forward<Args>(keyValues)...));
+    }
+    co_return folly::unit;
   }
 
   /**
@@ -361,6 +376,10 @@ class FaultInjector {
   }
 
   [[nodiscard]] ImmediateFuture<folly::Unit> checkAsyncImpl(
+      std::string_view keyClass,
+      std::string_view keyValue);
+
+  [[nodiscard]] folly::coro::now_task<folly::Unit> co_checkAsyncImpl(
       std::string_view keyClass,
       std::string_view keyValue);
 
