@@ -17,6 +17,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#ifdef __linux__
+#include <linux/filter.h>
+#include <linux/seccomp.h>
+#include <sys/prctl.h>
+#endif
+
 #include <folly/portability/GTest.h>
 #include <folly/test/TestUtils.h>
 #include <folly/testing/TestUtil.h>
@@ -302,6 +308,32 @@ bool canMountTmpfs() {
   waitpid(pid, &status, 0);
   return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
+// Install a seccomp-bpf filter that makes the fallocate syscall return
+// EOPNOTSUPP, forcing extendFile to fall back to ftruncate. This is the
+// only reliable way to create sparse pages in a unit test. In production,
+// the trigger is different: fallocate succeeds but pages are unwritable
+// (btrfs data/metadata space split, thin-provisioned LVM pool exhaustion,
+// overcommitted tmpfs, NFS server out of space).
+bool blockFallocate() {
+  // BPF program that intercepts every syscall and blocks fallocate:
+  //   1. Load the syscall number into the accumulator
+  //   2. If it's fallocate, jump to step 3; otherwise jump to step 4
+  //   3. Return EOPNOTSUPP — the kernel fails the syscall without executing it
+  //   4. Allow all other syscalls through
+  struct sock_filter filter[] = {
+      BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
+      BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_fallocate, 0, 1),
+      BPF_STMT(
+          BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EOPNOTSUPP & SECCOMP_RET_DATA)),
+      BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+  };
+  struct sock_fprog prog = {
+      .len = sizeof(filter) / sizeof(filter[0]),
+      .filter = filter,
+  };
+  prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+  return prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog) == 0;
+}
 } // namespace
 
 TEST_F(MappedDiskVectorTest, emplace_back_throws_on_enospc) {
@@ -392,6 +424,75 @@ TEST_F(MappedDiskVectorTest, populate_throws_on_truncated_file) {
         }
       },
       testing::ExitedWithCode(0),
+      "");
+}
+
+TEST_F(
+    MappedDiskVectorTest,
+    emplace_back_detects_write_failure_on_grown_pages) {
+  // Seccomp simulates the worst case: fallocate blocked -> ftruncate
+  // creates guaranteed-sparse pages on a full tmpfs. In production, the
+  // trigger is fallocate succeeding while the pages remain unwritable
+  // (btrfs data/metadata space split, thin-provisioned LVM, overcommitted
+  // tmpfs, NFS server full). MADV_POPULATE_WRITE is the safety net for all
+  // of these — it forces the kernel to back each page with write intent,
+  // surfacing disk-full as an exception instead of SIGBUS.
+  if (!canMountTmpfs()) {
+    GTEST_SKIP() << "User namespaces / tmpfs mount not available";
+  }
+
+  auto mountpoint = (tmpDir.path() / "growfail").string();
+  ::mkdir(mountpoint.c_str(), 0700);
+
+  EXPECT_EXIT(
+      {
+        signal(SIGBUS, SIG_DFL);
+
+        uid_t uid = getuid();
+        gid_t gid = getgid();
+
+        if (unshare(CLONE_NEWUSER | CLONE_NEWNS) != 0) {
+          _exit(1);
+        }
+        if (!setupIdMaps(uid, gid)) {
+          _exit(1);
+        }
+
+        // Mount a 1MB tmpfs — exactly the initial MDV file size.
+        // No room for growth.
+        if (mount("tmpfs", mountpoint.c_str(), "tmpfs", 0, "size=1048576") !=
+            0) {
+          _exit(1);
+        }
+
+        auto path = mountpoint + "/test.mdv";
+        auto mdv = MappedDiskVector<U64>::open(path);
+
+        // Fill to capacity so next emplace_back triggers growth.
+        size_t cap = mdv.capacity();
+        for (uint64_t i = 0; i < cap; ++i) {
+          mdv.emplace_back(i);
+        }
+
+        // Install seccomp filter to block fallocate AFTER the MDV is
+        // created and filled. This forces extendFile to fall back to
+        // ftruncate, which creates sparse pages on the full tmpfs.
+        if (!blockFallocate()) {
+          _exit(1);
+        }
+
+        try {
+          // FIXME: emplace_back should throw std::system_error, but
+          // SIGBUSes because there's no pre-fault before the
+          // placement-new write.
+          mdv.emplace_back(cap);
+          _exit(2); // Should have thrown.
+        } catch (const std::system_error&) {
+          _exit(0); // Clean error detection.
+        }
+      },
+      // FIXME: Should be ExitedWithCode(0) once pre-fault is added.
+      testing::KilledBySignal(SIGBUS),
       "");
 }
 #endif // __linux__
