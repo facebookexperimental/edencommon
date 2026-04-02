@@ -495,6 +495,69 @@ TEST_F(
       testing::KilledBySignal(SIGBUS),
       "");
 }
+
+TEST_F(MappedDiskVectorTest, open_detects_write_failure_on_initial_pages) {
+  // Seccomp simulates the worst case for initial pages: fallocate blocked ->
+  // ftruncate creates a sparse file on a tiny tmpfs. In production, the
+  // trigger is fallocate succeeding while pages remain unwritable (btrfs
+  // data/metadata space split, thin provisioning, etc). populateForWrite in
+  // emplace_back detects this and throws std::system_error.
+  if (!canMountTmpfs()) {
+    GTEST_SKIP() << "User namespaces / tmpfs mount not available";
+  }
+
+  auto mountpoint = (tmpDir.path() / "initfail").string();
+  ::mkdir(mountpoint.c_str(), 0700);
+
+  EXPECT_EXIT(
+      {
+        signal(SIGBUS, SIG_DFL);
+
+        uid_t uid = getuid();
+        gid_t gid = getgid();
+
+        if (unshare(CLONE_NEWUSER | CLONE_NEWNS) != 0) {
+          _exit(1);
+        }
+        if (!setupIdMaps(uid, gid)) {
+          _exit(1);
+        }
+
+        // Mount a tiny tmpfs -- enough for the MDV header page but not
+        // the full initial file. fallocate is blocked, so ftruncate
+        // creates a 1MB sparse file. Only page 0 (header) can be
+        // backed; the rest SIGBUS on write.
+        if (mount("tmpfs", mountpoint.c_str(), "tmpfs", 0, "size=4096") != 0) {
+          _exit(1);
+        }
+
+        // Block fallocate BEFORE open, so initializeFromScratch uses
+        // ftruncate, creating a 1MB sparse file with no backing pages
+        // beyond page 0.
+        if (!blockFallocate()) {
+          _exit(1);
+        }
+
+        auto path = mountpoint + "/test.mdv";
+        try {
+          auto mdv = MappedDiskVector<U64>::open(path);
+          // Fill page 0 (header is 32 bytes, so (4096-32)/8 = 508
+          // entries fit on the first page). Entry 508 crosses to page 1
+          // which can't be backed on a 4KB tmpfs.
+          // FIXME: Should throw std::system_error from populateForWrite
+          // in emplace_back, but currently SIGBUSes on page 1.
+          for (uint64_t i = 0; i < 600; ++i) {
+            mdv.emplace_back(i);
+          }
+          _exit(2);
+        } catch (const std::system_error&) {
+          _exit(0);
+        }
+      },
+      // FIXME: Should be ExitedWithCode(0) once per-page pre-fault is added.
+      testing::KilledBySignal(SIGBUS),
+      "");
+}
 #endif // __linux__
 
 TEST_F(MappedDiskVectorTest, migrate_overwrites_existing_tmp_file) {
