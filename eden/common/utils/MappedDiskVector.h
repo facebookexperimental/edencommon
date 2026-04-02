@@ -22,6 +22,12 @@
 #include <fcntl.h>
 #include <folly/portability/SysMman.h>
 #include <sys/mman.h>
+#ifdef __linux__
+// MADV_POPULATE_WRITE was added in Linux 5.14; older headers may lack it.
+#ifndef MADV_POPULATE_WRITE
+#define MADV_POPULATE_WRITE 23
+#endif
+#endif // __linux__
 #endif
 
 namespace facebook::eden {
@@ -352,6 +358,14 @@ class MappedDiskVector {
 
       begin_ = reinterpret_cast<T*>(static_cast<Header*>(newMap) + 1);
       end_ = begin_ + oldSize;
+
+      // Pre-fault the newly grown region. map_ is page-aligned (mmap/mremap
+      // guarantee) and the old mapping size is a multiple of GROWTH_IN_PAGES *
+      // kPageSize, so the address is system-page-aligned on all platforms.
+      populateForWrite(
+          static_cast<char*>(map_) +
+              (mapSizeInBytes_ - GROWTH_IN_PAGES * detail::kPageSize),
+          GROWTH_IN_PAGES * detail::kPageSize);
     }
 
     T* out = end_;
@@ -398,6 +412,24 @@ class MappedDiskVector {
       "header alignment is 16 bytes in case someone uses SSE values");
 
   static constexpr size_t GROWTH_IN_PAGES = 256;
+
+  // Pre-fault pages with write intent to detect disk-full errors as exceptions
+  // instead of SIGBUS. Even when fallocate succeeds, pages may be unwritable:
+  // btrfs can exhaust data space while metadata space remains, thin-provisioned
+  // storage can overcommit, and network filesystems can fail between allocation
+  // and write. MADV_POPULATE_WRITE forces the kernel to back each page now.
+  // Requires Linux 5.14+; EINVAL means unsupported.
+  static void populateForWrite(void* addr, size_t length) {
+#ifdef MADV_POPULATE_WRITE
+    if (madvise(addr, length, MADV_POPULATE_WRITE) != 0 && errno != EINVAL) {
+      folly::throwSystemError(
+          "failed to populate MappedDiskVector pages (disk full?)");
+    }
+#else
+    (void)addr;
+    (void)length;
+#endif
+  }
 
   // Extend a file to newSize bytes, pre-allocating disk blocks where
   // supported. Using fallocate detects ENOSPC early with a clean error
@@ -503,6 +535,13 @@ class MappedDiskVector {
 #else
     (void)populate;
 #endif
+
+    try {
+      populateForWrite(map, desiredSize);
+    } catch (...) {
+      munmap(map, desiredSize);
+      throw;
+    }
 
     // Throw no exceptions between assigning the fields.
 

@@ -482,17 +482,13 @@ TEST_F(
         }
 
         try {
-          // FIXME: emplace_back should throw std::system_error, but
-          // SIGBUSes because there's no pre-fault before the
-          // placement-new write.
           mdv.emplace_back(cap);
           _exit(2); // Should have thrown.
         } catch (const std::system_error&) {
           _exit(0); // Clean error detection.
         }
       },
-      // FIXME: Should be ExitedWithCode(0) once pre-fault is added.
-      testing::KilledBySignal(SIGBUS),
+      testing::ExitedWithCode(0),
       "");
 }
 
@@ -543,9 +539,8 @@ TEST_F(MappedDiskVectorTest, open_detects_write_failure_on_initial_pages) {
           auto mdv = MappedDiskVector<U64>::open(path);
           // Fill page 0 (header is 32 bytes, so (4096-32)/8 = 508
           // entries fit on the first page). Entry 508 crosses to page 1
-          // which can't be backed on a 4KB tmpfs.
-          // FIXME: Should throw std::system_error from populateForWrite
-          // in emplace_back, but currently SIGBUSes on page 1.
+          // which can't be backed on a 4KB tmpfs. populateForWrite in
+          // the constructor detects this and throws.
           for (uint64_t i = 0; i < 600; ++i) {
             mdv.emplace_back(i);
           }
@@ -554,8 +549,7 @@ TEST_F(MappedDiskVectorTest, open_detects_write_failure_on_initial_pages) {
           _exit(0);
         }
       },
-      // FIXME: Should be ExitedWithCode(0) once per-page pre-fault is added.
-      testing::KilledBySignal(SIGBUS),
+      testing::ExitedWithCode(0),
       "");
 }
 #endif // __linux__
