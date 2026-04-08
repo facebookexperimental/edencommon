@@ -129,7 +129,6 @@ class MappedDiskVector {
   template <typename... OldVersions>
   static MappedDiskVector open(
       folly::StringPiece path,
-      bool shouldPopulate = false,
       std::function<void()> afterMmap = nullptr) {
     folly::File file{path, O_RDWR | O_CREAT | O_CLOEXEC, 0600};
 
@@ -194,11 +193,7 @@ class MappedDiskVector {
                 header.recordSize));
       }
       return MappedDiskVector{
-          std::move(file),
-          st.st_size,
-          header.entryCount,
-          shouldPopulate,
-          std::move(afterMmap)};
+          std::move(file), st.st_size, header.entryCount, std::move(afterMmap)};
     }
 
     // Try to migrate from an old record format if any match.
@@ -471,15 +466,13 @@ class MappedDiskVector {
       throw std::runtime_error("Failed to write complete initial header");
     }
 
-    return MappedDiskVector{
-        std::move(file), initialSize, header.entryCount, false};
+    return MappedDiskVector{std::move(file), initialSize, header.entryCount};
   }
 
   explicit MappedDiskVector(
       folly::File file,
       off_t fileSize,
       size_t currentEntryCount,
-      bool populate,
       const std::function<void()>& afterMmap = nullptr)
       : file_(std::move(file)) {
     // It's worth keeping the file and mapping a whole number of pages to
@@ -514,21 +507,6 @@ class MappedDiskVector {
     if (afterMmap) {
       afterMmap();
     }
-
-#ifdef MADV_POPULATE_READ
-    // Pre-fault all pages and detect I/O errors (e.g. btrfs checksum
-    // failures) as exceptions instead of SIGBUS. MADV_POPULATE_READ was
-    // added in Linux 5.14; EINVAL means unsupported, which we ignore.
-    if (populate && madvise(map, desiredSize, MADV_POPULATE_READ) != 0 &&
-        errno != EINVAL) {
-      int err = errno;
-      munmap(map, desiredSize);
-      folly::throwSystemErrorExplicit(
-          err, "failed to populate MappedDiskVector");
-    }
-#else
-    (void)populate;
-#endif
 
     try {
       populateForWrite(map, desiredSize);
@@ -635,10 +613,8 @@ struct Migrator<T, First, Rest...> {
       // At this point, it's clear the original file is compatible with First.
       // Load it, migrate each element to a new temporary file, and move the
       // temporary file over the original.
-      // Set populate to true because migrating requires reading every element
-      // anyway.
       MappedDiskVector<First> original{
-          std::move(file), fileSize, currentEntryCount, true};
+          std::move(file), fileSize, currentEntryCount};
 
       auto tmpPath = folly::to<std::string>(path, ".tmp");
       auto newVector = MappedDiskVector<T>::createOrOverwrite(tmpPath);

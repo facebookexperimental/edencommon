@@ -386,11 +386,11 @@ TEST_F(MappedDiskVectorTest, emplace_back_throws_on_enospc) {
       "");
 }
 
-TEST_F(MappedDiskVectorTest, populate_throws_on_truncated_file) {
-  // Verify that MADV_POPULATE_READ detects I/O errors (e.g. btrfs checksum
+TEST_F(MappedDiskVectorTest, open_throws_on_truncated_file) {
+  // Verify that MADV_POPULATE_WRITE detects I/O errors (e.g. btrfs checksum
   // failures) and throws an exception instead of allowing a SIGBUS later.
-  // The callback truncates the file between mmap and population, simulating
-  // a corrupted backing store.
+  // The callback truncates the file between mmap and populateForWrite,
+  // simulating a corrupted backing store.
   {
     auto mdv = MappedDiskVector<U64>::open(mdvPath);
     // Add enough entries to span multiple pages.
@@ -405,19 +405,16 @@ TEST_F(MappedDiskVectorTest, populate_throws_on_truncated_file) {
 
         auto path = mdvPath;
         try {
-          auto mdv = MappedDiskVector<U64>::open(
-              path,
-              /*shouldPopulate=*/true,
-              [&]() {
-                // Truncate the file to just the header after mmap but before
-                // population, simulating a corrupted/truncated backing store.
-                int fd = ::open(path.c_str(), O_RDWR);
-                if (fd < 0) {
-                  _exit(1);
-                }
-                ftruncate(fd, 32);
-                ::close(fd);
-              });
+          auto mdv = MappedDiskVector<U64>::open(path, [&]() {
+            // Truncate the file to just the header after mmap but before
+            // population, simulating a corrupted/truncated backing store.
+            int fd = ::open(path.c_str(), O_RDWR);
+            if (fd < 0) {
+              _exit(1);
+            }
+            ftruncate(fd, 32);
+            ::close(fd);
+          });
           _exit(2); // Should have thrown.
         } catch (const std::system_error&) {
           _exit(0); // Success: clean exception instead of SIGBUS.
