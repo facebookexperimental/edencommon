@@ -22,12 +22,6 @@
 #include <fcntl.h>
 #include <folly/portability/SysMman.h>
 #include <sys/mman.h>
-#ifdef __linux__
-// MADV_POPULATE_WRITE was added in Linux 5.14; older headers may lack it.
-#ifndef MADV_POPULATE_WRITE
-#define MADV_POPULATE_WRITE 23
-#endif
-#endif // __linux__
 #endif
 
 namespace facebook::eden {
