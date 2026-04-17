@@ -354,6 +354,9 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
   /// Inequality operator.
   template <typename V, typename K>
   friend bool operator!=(const PathMap<V, K>& lhs, const PathMap<V, K>& rhs);
+
+  template <typename V, typename K>
+  friend class PathMapMutator;
 };
 
 // Implementations of the equality operators; gcc hates us if we
