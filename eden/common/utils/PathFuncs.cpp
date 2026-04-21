@@ -294,7 +294,11 @@ void validatePathComponentLength(PathComponentPiece name) {
 
 namespace {
 boost::filesystem::path asBoostPath(AbsolutePathPiece path) {
+#ifdef _WIN32
+  return boost::filesystem::path{path.wide()};
+#else
   return boost::filesystem::path{path.asString()};
+#endif
 }
 } // namespace
 
