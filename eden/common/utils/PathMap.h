@@ -77,8 +77,9 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
 
     // Compare two stored Pairs.
     template <typename A, typename B>
-    typename std::enable_if<std::is_convertible<A, Piece>::value, bool>::type
-    operator()(const std::pair<A, B>& lhs, const std::pair<A, B>& rhs) const {
+      requires std::convertible_to<A, Piece>
+    bool operator()(const std::pair<A, B>& lhs, const std::pair<A, B>& rhs)
+        const {
       return isPathPieceLess(
           Piece(lhs.first), Piece(rhs.first), caseSensitive_);
     }
