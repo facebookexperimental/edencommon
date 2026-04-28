@@ -21,6 +21,9 @@ struct TelemetryStats : StatsGroup<TelemetryStats> {
       "telemetry.xplat_messages_dropped_shutdown"};
   Counter xplatWriteZeroOkRecords{"telemetry.xplat_write_zero_ok_records"};
   Counter xplatWriteFailures{"telemetry.xplat_write_failures"};
+  Counter fileAccessViaXplatLogger{"telemetry.file_access_via_xplat_logger"};
+  Counter fileAccessViaStructuredLogger{
+      "telemetry.file_access_via_structured_logger"};
 };
 
 } // namespace facebook::eden
