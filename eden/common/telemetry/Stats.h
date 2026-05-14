@@ -25,6 +25,8 @@ struct TelemetryStats : StatsGroup<TelemetryStats> {
   Counter fileAccessViaXplatLogger{"telemetry.file_access_via_xplat_logger"};
   Counter fileAccessViaStructuredLogger{
       "telemetry.file_access_via_structured_logger"};
+  Counter eventsViaXplatLogger{"telemetry.events_via_xplat_logger"};
+  Counter eventsViaStructuredLogger{"telemetry.events_via_structured_logger"};
 };
 
 } // namespace facebook::eden
