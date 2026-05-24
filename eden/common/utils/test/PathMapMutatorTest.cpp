@@ -614,3 +614,48 @@ TEST(PathMapMutator, caseInsensitiveEmplaceSameNewKeyTwice) {
   EXPECT_EQ(10, it2->second); // original value preserved
   EXPECT_EQ("Foo"_pc, it2->first); // original casing preserved
 }
+
+TEST(PathMapMutator, insertOrAssignOverwritesExistingLiveEntry) {
+  PathMap<int> map(CaseSensitivity::Sensitive);
+  map.emplace("foo"_pc, 1);
+
+  PathMapMutator<int> mutator(std::move(map));
+  auto [it, inserted] = mutator.insert_or_assign("foo"_pc, 99);
+  EXPECT_FALSE(inserted); // assigned, not inserted
+  EXPECT_EQ(99, it->second);
+
+  auto result = std::move(mutator).finalize();
+  EXPECT_EQ(1u, result.size());
+  EXPECT_EQ(99, result.find("foo"_pc)->second);
+}
+
+TEST(PathMapMutator, insertOrAssignInsertsNewKey) {
+  PathMap<int> map(CaseSensitivity::Sensitive);
+  map.emplace("foo"_pc, 1);
+
+  PathMapMutator<int> mutator(std::move(map));
+  auto [it, inserted] = mutator.insert_or_assign("zzz"_pc, 42);
+  EXPECT_TRUE(inserted);
+  EXPECT_EQ(42, it->second);
+
+  auto result = std::move(mutator).finalize();
+  EXPECT_EQ(2u, result.size());
+  EXPECT_EQ(1, result.find("foo"_pc)->second);
+  EXPECT_EQ(42, result.find("zzz"_pc)->second);
+}
+
+TEST(PathMapMutator, insertOrAssignRevivesErasedSlot) {
+  PathMap<int> map(CaseSensitivity::Sensitive);
+  map.emplace("foo"_pc, 1);
+
+  PathMapMutator<int> mutator(std::move(map));
+  EXPECT_EQ(1, mutator.erase("foo"_pc));
+
+  auto [it, inserted] = mutator.insert_or_assign("foo"_pc, 7);
+  EXPECT_TRUE(inserted); // erased slot revived counts as insert
+  EXPECT_EQ(7, it->second);
+
+  auto result = std::move(mutator).finalize();
+  EXPECT_EQ(1u, result.size());
+  EXPECT_EQ(7, result.find("foo"_pc)->second);
+}

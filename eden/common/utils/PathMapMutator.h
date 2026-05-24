@@ -130,6 +130,44 @@ class PathMapMutator {
     return {vec().end() - 1, true};
   }
 
+  /**
+   * Insert a new entry or overwrite an existing one. Same complexity as
+   * emplace (single findImpl walk), faster than calling erase() followed
+   * by emplace() because the latter would do two findImpl walks.
+   *
+   * Return value matches std::map::insert_or_assign: the bool is true
+   * iff a new entry was inserted (or an erased slot was revived); false
+   * means an existing live entry's value was overwritten.
+   */
+  template <typename V>
+  std::pair<iterator, bool> insert_or_assign(Piece key, V&& value) {
+    auto [cit, erased] = findImpl(key);
+    if (cit != vec().end()) {
+      auto it = toMutable(cit);
+      if (!erased) {
+        // Live slot: overwrite the value, keep the existing key.
+        it->second = std::forward<V>(value);
+        return {it, false};
+      }
+      // Erased slot: revive it.
+      erased_.erase(indexOf(it));
+      it->first = Key(key);
+      it->second = std::forward<V>(value);
+      return {it, true};
+    }
+
+    if (vec().size() > suffixStart_ && !compare_(vec().back().first, key)) {
+      XLOGF(
+          WARN,
+          "PathMapMutator: suffix appended out of order ({}), compacting",
+          key.view());
+      compact();
+    }
+
+    vec().emplace_back(Key(key), std::forward<V>(value));
+    return {vec().end() - 1, true};
+  }
+
   Map finalize() {
     compact();
     return std::move(map_);
