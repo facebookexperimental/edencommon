@@ -13,6 +13,7 @@
 #include <sys/prctl.h>
 #endif // __linux__
 #ifdef EDEN_HAVE_SELINUX
+#include <folly/logging/xlog.h>
 #include <selinux/selinux.h> // @manual
 #endif // EDEN_HAVE_SELINUX
 #else // !_WIN32
@@ -25,7 +26,6 @@
 #include <vector>
 
 #include <folly/Exception.h>
-#include <folly/logging/xlog.h>
 
 using folly::checkUnixError;
 using folly::throwSystemError;
