@@ -409,7 +409,7 @@ class MappedDiskVector {
   // and write. MADV_POPULATE_WRITE forces the kernel to back each page now.
   // Requires Linux 5.14+; EINVAL means unsupported.
   static void populateForWrite(void* addr, size_t length) {
-#ifdef MADV_POPULATE_WRITE
+#if defined(__linux__) && defined(MADV_POPULATE_WRITE)
     if (madvise(addr, length, MADV_POPULATE_WRITE) != 0 && errno != EINVAL) {
       folly::throwSystemError(
           "failed to populate MappedDiskVector pages (disk full?)");
