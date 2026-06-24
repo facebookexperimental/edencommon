@@ -8,6 +8,7 @@
 #pragma once
 
 #include <folly/portability/Unistd.h>
+#include <cstdint>
 #include <functional>
 #include <type_traits>
 
@@ -303,6 +304,11 @@ class MappedDiskVector {
     return begin_[index];
   }
 
+  void populateEntryForWrite(size_t index) {
+    XCHECK_LT(index, size());
+    populateForWrite(begin_ + index, sizeof(T));
+  }
+
   template <typename... Args>
   void emplace_back(Args&&... args) {
     if (!hasRoom(1)) {
@@ -358,6 +364,7 @@ class MappedDiskVector {
     }
 
     T* out = end_;
+    populateForWrite(out, sizeof(T));
     new (out) T{std::forward<Args>(args)...}; // may throw
     end_ = out + 1;
 
@@ -408,9 +415,24 @@ class MappedDiskVector {
   // storage can overcommit, and network filesystems can fail between allocation
   // and write. MADV_POPULATE_WRITE forces the kernel to back each page now.
   // Requires Linux 5.14+; EINVAL means unsupported.
-  static void populateForWrite(void* addr, size_t length) {
+  static void populateForWrite(const void* addr, size_t length) {
 #if defined(__linux__) && defined(MADV_POPULATE_WRITE)
-    if (madvise(addr, length, MADV_POPULATE_WRITE) != 0 && errno != EINVAL) {
+    auto start = reinterpret_cast<uintptr_t>(addr);
+    auto end = start + length;
+    XCHECK_GE(end, start);
+
+    // madvise() requires a page-aligned address, but entry writes may target a
+    // record in the middle of the mapping. Populate the pages covering it.
+    const auto pageSize = systemPageSize();
+    auto alignedStartAddress = start - (start % pageSize);
+    auto alignedEndAddress = ((end + pageSize - 1) / pageSize) * pageSize;
+    auto* alignedStart =
+        static_cast<const char*>(addr) - (start - alignedStartAddress);
+    if (madvise(
+            const_cast<char*>(alignedStart),
+            alignedEndAddress - alignedStartAddress,
+            MADV_POPULATE_WRITE) != 0 &&
+        errno != EINVAL) {
       folly::throwSystemError(
           "failed to populate MappedDiskVector pages (disk full?)");
     }
@@ -418,6 +440,14 @@ class MappedDiskVector {
     (void)addr;
     (void)length;
 #endif
+  }
+
+  static size_t systemPageSize() {
+    static const size_t pageSize = [] {
+      auto value = sysconf(_SC_PAGESIZE);
+      return value > 0 ? static_cast<size_t>(value) : detail::kPageSize;
+    }();
+    return pageSize;
   }
 
   // Extend a file to newSize bytes, pre-allocating disk blocks where
