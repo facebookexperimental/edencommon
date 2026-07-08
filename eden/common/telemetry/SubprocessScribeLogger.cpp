@@ -54,6 +54,13 @@ SubprocessScribeLogger::SubprocessScribeLogger(
     options.chdir(kRootAbsPath);
   }
 
+#ifdef _WIN32
+  // Without this, Windows allocates a visible console window for the scribe_cat
+  // child whenever the parent (e.g. the edenfs or watchman daemon) has no
+  // console of its own.
+  options.creationFlags(CREATE_NO_WINDOW);
+#endif
+
   process_ = SpawnedProcess{argv, std::move(options)};
 
   SCOPE_FAIL {
