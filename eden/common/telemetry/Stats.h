@@ -23,8 +23,6 @@ struct TelemetryStats : StatsGroup<TelemetryStats> {
   Counter xplatWriteFailures{"telemetry.xplat_write_failures"};
   Counter xplatBackoffWaits{"telemetry.xplat_backoff_waits"};
   Counter fileAccessViaXplatLogger{"telemetry.file_access_via_xplat_logger"};
-  Counter fileAccessViaStructuredLogger{
-      "telemetry.file_access_via_structured_logger"};
   Counter eventsViaXplatLogger{"telemetry.events_via_xplat_logger"};
   Counter eventsViaStructuredLogger{"telemetry.events_via_structured_logger"};
   Counter errorsViaXplatLogger{"telemetry.errors_via_xplat_logger"};
