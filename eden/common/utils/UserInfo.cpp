@@ -209,10 +209,18 @@ void UserInfo::initFromNonRoot(uid_t uid) {
   // Always look up the username from the UID.
   // We cannot trust the USER environment variable--the user could have set
   // it to anything.
-  auto pwd = getPasswdUid(uid_);
-  username_ = pwd.pwd.pw_name;
-
-  initHomedir(&pwd);
+  //
+  // Some environments (minimal containers, remote-execution sandboxes) run
+  // under a UID that has no passwd entry. Fall back to a UID-derived username
+  // and best-effort home directory rather than aborting.
+  try {
+    auto pwd = getPasswdUid(uid_);
+    username_ = pwd.pwd.pw_name;
+    initHomedir(&pwd);
+  } catch (const std::system_error&) {
+    username_ = folly::to<std::string>(uid_);
+    initHomedir();
+  }
 }
 
 void UserInfo::initHomedir(PasswdEntry* pwd) {
@@ -234,8 +242,12 @@ void UserInfo::initHomedir(PasswdEntry* pwd) {
 
   PasswdEntry locallyLookedUp;
   if (!pwd) {
-    locallyLookedUp = getPasswdUid(uid_);
-    pwd = &locallyLookedUp;
+    try {
+      locallyLookedUp = getPasswdUid(uid_);
+      pwd = &locallyLookedUp;
+    } catch (const std::system_error&) {
+      pwd = nullptr;
+    }
   }
 
   if (pwd && pwd->pwd.pw_dir) {
