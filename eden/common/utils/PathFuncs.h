@@ -651,6 +651,14 @@ class PathBase :
     }
   }
 
+  std::string intoString() && {
+    if constexpr (std::is_same_v<Storage, std::string>) {
+      return detail::move_or_copy(path_);
+    } else {
+      return std::string{view()};
+    }
+  }
+
   /// Return the path as a std::string_view
   std::string_view view() const {
     return std::string_view{path_};
