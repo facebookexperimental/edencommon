@@ -522,6 +522,7 @@ class PathBase :
   // These type aliases are useful in other templates to be able
   // to determine the Piece and Stored counterparts for a parameter.
   using piece_type = Piece;
+  using storage_type = Storage;
   using stored_type = Stored;
 
   /** Default construct an empty value. */
@@ -657,6 +658,12 @@ class PathBase :
     } else {
       return std::string{view()};
     }
+  }
+
+  template <typename StorageAlias = Storage>
+    requires(!std::is_same_v<StorageAlias, std::string_view>)
+  Storage intoStorage() && {
+    return detail::move_or_copy(path_);
   }
 
   /// Return the path as a std::string_view
