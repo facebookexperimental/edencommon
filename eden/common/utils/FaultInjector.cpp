@@ -8,6 +8,7 @@
 #include "eden/common/utils/FaultInjector.h"
 
 #include <chrono>
+#include <cstdlib>
 #include <string_view>
 
 #include <fmt/format.h>
@@ -82,7 +83,7 @@ ImmediateFuture<Unit> FaultInjector::checkAsyncImpl(
           },
           [&](const FaultInjector::Kill&) -> RV {
             XLOGF(DBG1, "kill fault hit: {}, {}", keyClass, keyValue);
-            abort();
+            std::_Exit(EXIT_FAILURE);
           }),
       behavior);
 }
@@ -119,7 +120,7 @@ folly::coro::now_task<Unit> FaultInjector::co_checkAsyncImpl(
     error->throw_exception();
   } else if (std::holds_alternative<FaultInjector::Kill>(behavior)) {
     XLOGF(DBG1, "kill fault hit: {}, {}", keyClass, keyValue);
-    abort();
+    std::_Exit(EXIT_FAILURE);
   }
   co_return folly::unit;
 }

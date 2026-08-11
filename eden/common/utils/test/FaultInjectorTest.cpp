@@ -7,6 +7,8 @@
 
 #include <eden/common/utils/FaultInjector.h>
 
+#include <cstdlib>
+
 #include <folly/portability/GTest.h>
 #include <folly/stop_watch.h>
 #include <folly/test/TestUtils.h>
@@ -130,6 +132,17 @@ TEST(FaultInjector, delay) {
   auto future = fi.checkAsync("error", "xyz");
   EXPECT_THROW_RE(std::move(future).get(), std::runtime_error, "slowfail");
   EXPECT_GE(sw.elapsed(), 20ms);
+}
+
+TEST(FaultInjector, killExitsImmediately) {
+  EXPECT_EXIT(
+      {
+        FaultInjector fi(true);
+        fi.injectKill("mount", ".*");
+        fi.check("mount", "/test");
+      },
+      ::testing::ExitedWithCode(EXIT_FAILURE),
+      "");
 }
 
 TEST(FaultInjector, noop) {

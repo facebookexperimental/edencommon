@@ -18,7 +18,7 @@ Deterministic fault injection for EdenFS tests. Allows controlling the ordering 
 | **Delay** | Sleeps for a fixed duration via `folly::futures::sleep` |
 | **DelayedError** | Sleeps for a duration, then throws an exception |
 | **Error** | Throws immediately via `exception_wrapper` |
-| **Kill** | Calls `abort()` -- terminates the process |
+| **Kill** | Calls `std::_Exit()` -- terminates the process without cleanup |
 | **Noop** | Matches but does nothing (prevents lower-priority faults from triggering) |
 
 **Choosing a fault type:**
