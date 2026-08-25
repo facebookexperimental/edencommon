@@ -365,6 +365,8 @@ class MappedDiskVector {
 
     T* out = end_;
     populateForWrite(out, sizeof(T));
+    populateForWrite(map_, sizeof(Header));
+
     new (out) T{std::forward<Args>(args)...}; // may throw
     end_ = out + 1;
 
@@ -375,6 +377,7 @@ class MappedDiskVector {
     // TODO: It might be worth eliminating the end_ pointer and always adding
     // header().entryCount to begin_.
     XDCHECK_GT(end_, begin_);
+    populateForWrite(map_, sizeof(Header));
     --end_;
     --header().entryCount;
   }
