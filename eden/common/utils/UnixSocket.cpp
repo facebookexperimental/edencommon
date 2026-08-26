@@ -342,9 +342,11 @@ void UnixSocket::send(IOBuf&& data, SendCallback* callback) noexcept {
 
 void UnixSocket::send(Message&& message, SendCallback* callback) noexcept {
   if (closeStarted_) {
-    callback->sendError(
-        make_exception_wrapper<std::runtime_error>(
-            "cannot send a message on a closed UnixSocket"));
+    if (callback) {
+      callback->sendError(
+          make_exception_wrapper<std::runtime_error>(
+              "cannot send a message on a closed UnixSocket"));
+    }
     return;
   }
   eventBase_->dcheckIsInEventBaseThread();
