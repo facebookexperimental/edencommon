@@ -190,6 +190,15 @@ class SpawnedProcess {
     void creationFlags(DWORD flags);
 #endif
 
+#ifdef __APPLE__
+    // Spawn the child with TCC responsibility disclaimed, making the child
+    // its own "responsible process" for TCC permission checks instead of
+    // inheriting the responsible process from this process's launch context.
+    // This makes TCC grants keyed to the child's code signature apply
+    // deterministically, no matter what launched the parent.
+    void disclaimTccResponsibility();
+#endif
+
    private:
     // The descriptors to pass to the child
     std::unordered_map<int, FileDescriptor> descriptors_;
@@ -203,6 +212,13 @@ class SpawnedProcess {
     std::optional<AbsolutePath> execPath_;
 #ifdef _WIN32
     std::optional<DWORD> flags_;
+#endif
+#ifdef __APPLE__
+    // Whether to make the child its own TCC responsible process.
+    // std::optional rather than `bool disclaim_{false}` because a default
+    // member initializer in this nested class trips clang's deferred parsing
+    // via the `Options()` default argument below.
+    std::optional<bool> disclaim_;
 #endif
 
     friend class SpawnedProcess;

@@ -31,6 +31,10 @@
 #include <sys/wait.h>
 #endif
 
+#ifdef __APPLE__
+#include <dlfcn.h>
+#endif
+
 using folly::checkPosixError;
 using namespace std::chrono_literals;
 
@@ -375,6 +379,37 @@ void SpawnedProcess::Options::nullStderr() {
   dup2(FileDescriptor::openNullDevice(opts), STDERR_FILENO);
 }
 
+#ifdef __APPLE__
+void SpawnedProcess::Options::disclaimTccResponsibility() {
+  disclaim_ = true;
+}
+
+namespace {
+// Marks the spawn attributes so the child becomes its own TCC "responsible
+// process" instead of inheriting the responsible process from this process's
+// launch context. responsibility_spawnattrs_setdisclaim() is a private API
+// with no public header, so it is resolved at runtime via dlsym. Failures are
+// logged and otherwise ignored: disclaiming is best-effort and must never
+// prevent the spawn itself.
+void applyTccDisclaim(posix_spawnattr_t* attr) {
+  using SetDisclaimFn = int (*)(posix_spawnattr_t*, int);
+  static const auto setDisclaim = reinterpret_cast<SetDisclaimFn>(
+      dlsym(RTLD_DEFAULT, "responsibility_spawnattrs_setdisclaim"));
+  if (!setDisclaim) {
+    XLOG_FIRST_N(WARN, 1)
+        << "responsibility_spawnattrs_setdisclaim is unavailable; "
+           "spawning without disclaiming TCC responsibility";
+    return;
+  }
+  if (int rc = setDisclaim(attr, 1); rc != 0) {
+    XLOG_FIRST_N(WARN, 1)
+        << "responsibility_spawnattrs_setdisclaim failed with " << rc
+        << "; spawning without disclaiming TCC responsibility";
+  }
+}
+} // namespace
+#endif
+
 #ifdef _WIN32
 void SpawnedProcess::Options::creationFlags(DWORD flags) {
   flags_ = flags;
@@ -466,6 +501,15 @@ SpawnedProcess::SpawnedProcess(
 
   // Reset signals to default for the child process
   posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF);
+
+#ifdef __APPLE__
+  // Must stay after posix_spawnattr_setflags: setflags overwrites the flags
+  // word, and this path is fail-open, so a reorder would silently drop the
+  // disclaim.
+  if (options.disclaim_.value_or(false)) {
+    applyTccDisclaim(&attr);
+  }
+#endif
 
   // We make a copy because posix_spawnp requires that the argv be non-const.
   // In addition, if combining chdir and executablePath we need to modify the

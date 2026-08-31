@@ -14,6 +14,10 @@
 
 #include "eden/common/utils/PathFuncs.h"
 
+#ifdef __APPLE__
+#include <dlfcn.h>
+#endif
+
 using namespace facebook::eden;
 using Options = SpawnedProcess::Options;
 
@@ -138,6 +142,48 @@ TEST(SpawnedProcess, inputThreaded) {
 TEST(SpawnedProcess, inputNotThreaded) {
   test_pipe_input(false);
 }
+
+#ifdef __APPLE__
+TEST(SpawnedProcess, disclaimTccResponsibility) {
+  // Both APIs used here are private, with no public headers, so resolve them
+  // at runtime and skip the test if either is unavailable.
+  using GetResponsiblePidFn = pid_t (*)(pid_t);
+  auto getResponsiblePid = reinterpret_cast<GetResponsiblePidFn>(
+      dlsym(RTLD_DEFAULT, "responsibility_get_pid_responsible_for_pid"));
+  auto setDisclaim =
+      dlsym(RTLD_DEFAULT, "responsibility_spawnattrs_setdisclaim");
+  if (!getResponsiblePid || !setDisclaim) {
+    GTEST_SKIP() << "responsibility APIs are unavailable on this system";
+  }
+  // On hosts where the proc_info lookup behind this API is restricted it
+  // returns -1; skip rather than failing the comparisons below.
+  if (getResponsiblePid(getpid()) == -1) {
+    GTEST_SKIP()
+        << "responsibility_get_pid_responsible_for_pid is restricted here";
+  }
+
+  auto spawnSleep = [](bool disclaim) {
+    Options opts;
+    opts.nullStdin();
+    if (disclaim) {
+      opts.disclaimTccResponsibility();
+    }
+    // The child must still be alive when we query its responsible pid,
+    // so spawn something that sleeps until we kill it.
+    return SpawnedProcess({"/bin/sleep", "30"}, std::move(opts));
+  };
+
+  auto disclaimed = spawnSleep(/*disclaim=*/true);
+  EXPECT_EQ(disclaimed.pid(), getResponsiblePid(disclaimed.pid()));
+  disclaimed.kill();
+  disclaimed.wait();
+
+  auto inherited = spawnSleep(/*disclaim=*/false);
+  EXPECT_NE(inherited.pid(), getResponsiblePid(inherited.pid()));
+  inherited.kill();
+  inherited.wait();
+}
+#endif
 
 TEST(SpawnedProcess, shellQuoting) {
   std::vector<std::string> args;
