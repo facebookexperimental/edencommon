@@ -196,6 +196,10 @@ class UnixSocket : public folly::DelayedDestruction,
    *
    * The UnixSocket destructor is private, so users must use destroy() instead
    * of manually deleting the object.
+   *
+   * destroy() is safe to call from inside this socket's own callbacks: the
+   * teardown is deferred until the callback stack unwinds, so the send
+   * queue and callback state are never torn down mid-delivery.
    */
   void destroy() override;
 
@@ -395,6 +399,8 @@ class UnixSocket : public folly::DelayedDestruction,
   void handlerReady(uint16_t events) noexcept override;
   void timeoutExpired() noexcept override;
 
+  void onDelayedDestroy(bool delayed) override;
+
   void socketError(const folly::exception_wrapper& ew);
   void failAllSends(const folly::exception_wrapper& ew);
 
@@ -402,6 +408,7 @@ class UnixSocket : public folly::DelayedDestruction,
   folly::File socket_;
   uint16_t registeredIOEvents_{0};
   bool closeStarted_{false};
+  bool destroying_{false};
 
   // sufficiently large transfers while limiting the risk of making too large
   // of an allocation given bogus data.

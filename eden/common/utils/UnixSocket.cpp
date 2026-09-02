@@ -128,12 +128,34 @@ UnixSocket::~UnixSocket() {
 }
 
 void UnixSocket::destroy() {
+  // All cleanup happens in onDelayedDestroy() rather than here: destroy()
+  // may be called from inside one of our own callbacks (with destructor
+  // guards on the stack), while the send queue and callbacks are still
+  // mid-delivery. Deferring the cleanup to the point where the last guard
+  // is released keeps closeNow() out of that window while still running
+  // it before the destructor starts.
+  DelayedDestruction::destroy();
+}
+
+void UnixSocket::onDelayedDestroy(bool delayed) {
+  // Guard releases invoke this on every drop to zero; only proceed when a
+  // destroy() is actually pending. This mirrors the check in
+  // DelayedDestruction::onDelayedDestroy(), which is private and cannot be
+  // reused; its only other effect is the delete below.
+  if (delayed && !getDestroyPending()) {
+    return;
+  }
+  if (destroying_) {
+    // Re-entered from the DestructorGuard that closeNow() below holds.
+    return;
+  }
+  destroying_ = true;
+
   // Close the socket to ensure we are unregistered from I/O and timeout
   // callbacks before our destructor starts.
   closeNow();
 
-  // Call our parent's destroy() implementation
-  DelayedDestruction::destroy();
+  delete this;
 }
 
 void UnixSocket::attachEventBase(folly::EventBase* eventBase) {
@@ -341,6 +363,10 @@ void UnixSocket::send(IOBuf&& data, SendCallback* callback) noexcept {
 }
 
 void UnixSocket::send(Message&& message, SendCallback* callback) noexcept {
+  // Every error path may invoke the callback, which is allowed to destroy this
+  // socket. Keep it alive until send() returns.
+  DestructorGuard guard(this);
+
   if (closeStarted_) {
     if (callback) {
       callback->sendError(
@@ -381,10 +407,6 @@ void UnixSocket::send(Message&& message, SendCallback* callback) noexcept {
   }
 
   if (trySendNow) {
-    // If trySend() succeeds and invokes the send callback, make sure it
-    // cannot destroy us until trySend() finishes.
-    DestructorGuard guard(this);
-
     try {
       trySend();
     } catch (...) {
