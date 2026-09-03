@@ -205,6 +205,30 @@ TEST(PathMap, eraseThenReinsert) {
   EXPECT_EQ(2, map.size());
 }
 
+TEST(PathMap, insertOrAssign) {
+  PathMap<int> map(CaseSensitivity::Sensitive);
+  EXPECT_TRUE(map.insert_or_assign("foo"_pc, 1).second);
+  EXPECT_EQ(1, map.at("foo"_pc));
+
+  EXPECT_FALSE(map.insert_or_assign("foo"_pc, 2).second);
+  EXPECT_EQ(2, map.at("foo"_pc));
+  EXPECT_EQ(1, map.size());
+
+  EXPECT_EQ(1, map.erase("foo"_pc));
+  EXPECT_TRUE(map.insert_or_assign("foo"_pc, 3).second);
+  EXPECT_EQ(3, map.at("foo"_pc));
+}
+
+TEST(PathMap, insertOrAssignKeepsExistingKeyCase) {
+  PathMap<int> map(CaseSensitivity::Insensitive);
+  map.emplace("FOO"_pc, 1);
+
+  EXPECT_FALSE(map.insert_or_assign("foo"_pc, 2).second);
+  EXPECT_EQ(2, map.at("foo"_pc));
+  // Overwriting the value does not change the case of the key.
+  EXPECT_EQ("FOO"_pc, map.begin()->first);
+}
+
 TEST(PathMap, eraseThenReinsertDifferentCase) {
   PathMap<int> map(CaseSensitivity::Insensitive);
   map.emplace("FOO"_pc, 1);

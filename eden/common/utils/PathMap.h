@@ -473,7 +473,7 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
    * Returns a pair consisting of an iterator to the position for key and
    * a boolean that is true if an insert took place. */
   std::pair<iterator, bool> insert(const value_type& val) {
-    return insertImpl(Piece(val.first), val.second);
+    return insertImpl<false>(Piece(val.first), val.second);
   }
 
   /** Emplace a new key-value pair by constructing it in-place.
@@ -484,14 +484,27 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
    * a boolean that is true if an insert took place. */
   template <typename... Args>
   std::pair<iterator, bool> emplace(Piece key, Args&&... args) {
-    return insertImpl(key, std::forward<Args>(args)...);
+    return insertImpl<false>(key, std::forward<Args>(args)...);
+  }
+
+  /** Insert a new entry or overwrite an existing one, with a single
+   * lookup — cheaper than erase() followed by emplace(), which searches
+   * twice and churns a tombstone.
+   * When overwriting, the existing key is kept (its case may differ from
+   * `key` in case-insensitive maps).
+   * Return value matches std::map::insert_or_assign: the bool is true if
+   * a new entry was inserted, false if an existing entry's value was
+   * overwritten. */
+  template <typename V>
+  std::pair<iterator, bool> insert_or_assign(Piece key, V&& value) {
+    return insertImpl<true>(key, std::forward<V>(value));
   }
 
   /** Returns a reference to the map position for key, creating it needed.
    * If the key is already present, no additional allocations are performed.
    */
   mapped_type& operator[](Piece key) {
-    return insertImpl(key).first->second;
+    return insertImpl<false>(key).first->second;
   }
 
   /** Returns a reference to the map position for key, if present.
@@ -547,9 +560,6 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
   CaseSensitivity getCaseSensitivity() const {
     return compare_.caseSensitive_;
   }
-
-  template <typename V, typename K>
-  friend class PathMapMutator;
 
  private:
   Pair& rawAt(VectorSizeType i) {
@@ -708,7 +718,7 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
     return std::max<VectorSizeType>(kMinCompactionBatch, size() / 4);
   }
 
-  template <typename... ValueArgs>
+  template <bool kAssignOnMatch, typename... ValueArgs>
   std::pair<iterator, bool> insertImpl(Piece key, ValueArgs&&... valueArgs) {
     if (sortedEnd_ == rawSize() &&
         (rawSize() == 0 || compare_(rawAt(rawSize() - 1).first, key))) {
@@ -724,10 +734,16 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
     const bool prefixMatch =
         prefixIdx != sortedEnd_ && !compare_(key, rawAt(prefixIdx).first);
     if (prefixMatch && !isDead(prefixIdx)) {
+      if constexpr (kAssignOnMatch) {
+        rawAt(prefixIdx).second = Value(std::forward<ValueArgs>(valueArgs)...);
+      }
       return {iterator{this, prefixIdx, pendingLowerBound(key)}, false};
     }
     const auto pendingIdx = pendingLowerBound(key);
     if (pendingIdx != rawSize() && !compare_(key, rawAt(pendingIdx).first)) {
+      if constexpr (kAssignOnMatch) {
+        rawAt(pendingIdx).second = Value(std::forward<ValueArgs>(valueArgs)...);
+      }
       return {iterator{this, skipDead(prefixIdx), pendingIdx}, false};
     }
     if (prefixMatch) {
