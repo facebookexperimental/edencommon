@@ -561,6 +561,9 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
     return compare_.caseSensitive_;
   }
 
+  // Test-only accessor; the fuzzer uses it to check internal invariants.
+  friend struct PathMapTestAccess;
+
  private:
   Pair& rawAt(VectorSizeType i) {
     return Vector::operator[](i);
