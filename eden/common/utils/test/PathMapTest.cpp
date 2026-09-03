@@ -6,8 +6,11 @@
  */
 
 #include "eden/common/utils/PathMap.h"
+#include <fmt/format.h>
 #include <folly/portability/GTest.h>
 #include <folly/portability/Unistd.h>
+#include <map>
+#include <random>
 
 using namespace facebook::eden;
 using namespace facebook::eden::path_literals;
@@ -186,6 +189,128 @@ TEST(PathMap, iteration_and_erase) {
   EXPECT_EQ(2, map.size()) << "deleted 1";
   EXPECT_EQ(PathComponent("foo"), iter->first) << "iter advanced to next item";
   EXPECT_EQ(1, iter->second);
+}
+
+TEST(PathMap, eraseThenReinsert) {
+  PathMap<int> map(CaseSensitivity::Sensitive);
+  map.emplace("bar"_pc, 1);
+  map.emplace("foo"_pc, 2);
+
+  EXPECT_EQ(1, map.erase("foo"_pc));
+  EXPECT_EQ(map.end(), map.find("foo"_pc));
+  EXPECT_EQ(1, map.size());
+
+  EXPECT_TRUE(map.emplace("foo"_pc, 3).second);
+  EXPECT_EQ(3, map.at("foo"_pc));
+  EXPECT_EQ(2, map.size());
+}
+
+TEST(PathMap, eraseThenReinsertDifferentCase) {
+  PathMap<int> map(CaseSensitivity::Insensitive);
+  map.emplace("FOO"_pc, 1);
+
+  EXPECT_EQ(1, map.erase("foo"_pc));
+  EXPECT_TRUE(map.emplace("Foo"_pc, 2).second);
+  EXPECT_EQ(1, map.size());
+  // The re-inserted entry owns the key, including its case.
+  EXPECT_EQ("Foo"_pc, map.begin()->first);
+  EXPECT_EQ(2, map.at("FOO"_pc));
+}
+
+// Empty a large map through the iterator returned by erase(), which
+// crosses the internal compaction thresholds along the way.
+TEST(PathMap, eraseIteratorDrain) {
+  PathMap<size_t> map(CaseSensitivity::Sensitive);
+  constexpr size_t kCount = 200;
+  for (size_t i = 0; i < kCount; ++i) {
+    map.emplace(PathComponent(fmt::format("entry{:04d}", i)), i);
+  }
+
+  size_t expected = 0;
+  auto iter = map.begin();
+  while (iter != map.end()) {
+    EXPECT_EQ(expected, iter->second);
+    iter = map.erase(iter);
+    ++expected;
+  }
+  EXPECT_EQ(kCount, expected);
+  EXPECT_TRUE(map.empty());
+}
+
+// Mirror a mixed insert/erase/find workload against std::map. The
+// workload is large enough to repeatedly trigger internal compaction of
+// pending inserts and erased entries.
+TEST(PathMap, iterationMergesPendingAtEveryPosition) {
+  // Large enough that erases tombstone rather than shift, so the pending
+  // entry is merged next to a dead one at every position.
+  constexpr size_t kCount = 40;
+  std::vector<std::string> keys;
+  keys.reserve(kCount);
+  PathMap<int> base{CaseSensitivity::Sensitive};
+  for (size_t i = 0; i < kCount; ++i) {
+    keys.push_back(fmt::format("k{:02d}", i));
+    base.emplace(PathComponentPiece{keys.back()}, static_cast<int>(i));
+  }
+
+  for (size_t p = 0; p < kCount; ++p) {
+    auto map = base;
+    map.erase(PathComponentPiece{keys[p]});
+    const auto pending = fmt::format("k{:02d}x", p);
+    map.emplace(PathComponentPiece{pending}, -1);
+
+    std::vector<std::string> expected;
+    expected.reserve(kCount);
+    for (size_t i = 0; i < kCount; ++i) {
+      expected.push_back(i == p ? pending : keys[i]);
+    }
+    std::vector<std::string> actual;
+    actual.reserve(kCount);
+    for (const auto& entry : map) {
+      actual.emplace_back(entry.first.view());
+    }
+    EXPECT_EQ(expected, actual) << "pending entry at position " << p;
+    EXPECT_EQ(-1, map.at(PathComponentPiece{pending}));
+    EXPECT_EQ(map.end(), map.find(PathComponentPiece{keys[p]}));
+  }
+}
+
+TEST(PathMap, matchesStdMapUnderMixedMutations) {
+  PathMap<int> map(CaseSensitivity::Sensitive);
+  std::map<PathComponent, int> reference;
+  std::mt19937 rng{0x5eed};
+  std::uniform_int_distribution<int> keyDist(0, 199);
+  std::uniform_int_distribution<int> opDist(0, 2);
+
+  for (int step = 0; step < 4000; ++step) {
+    PathComponent key{fmt::format("key{:04d}", keyDist(rng))};
+    switch (opDist(rng)) {
+      case 0:
+        EXPECT_EQ(
+            reference.emplace(key, step).second,
+            map.emplace(key.piece(), step).second);
+        break;
+      case 1:
+        EXPECT_EQ(reference.erase(key), map.erase(key.piece()));
+        break;
+      case 2: {
+        auto expected = reference.find(key);
+        auto actual = map.find(key.piece());
+        ASSERT_EQ(expected == reference.end(), actual == map.end());
+        if (expected != reference.end()) {
+          EXPECT_EQ(expected->second, actual->second);
+        }
+        break;
+      }
+    }
+  }
+
+  ASSERT_EQ(reference.size(), map.size());
+  auto refIter = reference.begin();
+  for (const auto& entry : map) {
+    EXPECT_EQ(refIter->first, entry.first);
+    EXPECT_EQ(refIter->second, entry.second);
+    ++refIter;
+  }
 }
 
 TEST(PathMap, copy) {

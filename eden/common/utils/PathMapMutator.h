@@ -59,6 +59,9 @@ class PathMapMutator {
       : compare_(map.getCaseSensitivity()),
         caseSensitive_(map.getCaseSensitivity()),
         map_(std::move(map)) {
+    // The mutator manipulates the map's raw vector, so fold any pending
+    // inserts and tombstones into the sorted prefix first.
+    map_.compact();
     suffixStart_ = vec().size();
   }
 
@@ -170,6 +173,9 @@ class PathMapMutator {
 
   Map finalize() {
     compact();
+    // The whole vector is sorted and live again; restore the map's
+    // invariant that the sorted prefix spans everything.
+    map_.sortedEnd_ = vec().size();
     return std::move(map_);
   }
 
