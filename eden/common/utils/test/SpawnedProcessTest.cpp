@@ -22,6 +22,18 @@ using namespace facebook::eden;
 using Options = SpawnedProcess::Options;
 
 #ifndef _WIN32
+TEST(SpawnedProcess, computeSpawnFlagsAddsResetIdsWhenRequested) {
+  Options defaultOpts;
+  EXPECT_EQ(
+      POSIX_SPAWN_SETSIGDEF, SpawnedProcess::computeSpawnFlags(defaultOpts));
+
+  Options resetIdsOpts;
+  resetIdsOpts.resetIds();
+  EXPECT_EQ(
+      POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_RESETIDS,
+      SpawnedProcess::computeSpawnFlags(resetIdsOpts));
+}
+
 TEST(SpawnedProcess, cwd_slash) {
   Options opts;
   opts.nullStdin();

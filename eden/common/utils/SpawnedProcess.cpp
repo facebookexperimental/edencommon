@@ -238,6 +238,12 @@ SpawnedProcess::Environment& SpawnedProcess::Options::environment() {
   return env_;
 }
 
+#ifndef _WIN32
+void SpawnedProcess::Options::resetIds() {
+  resetIds_ = true;
+}
+#endif
+
 void SpawnedProcess::Options::dup2(FileDescriptor&& fd, int targetFd) {
 #ifndef _WIN32
   if (targetFd == fd.fd()) {
@@ -479,6 +485,16 @@ SpawnedProcess& SpawnedProcess::operator=(SpawnedProcess&& other) noexcept {
   return *this;
 }
 
+#ifndef _WIN32
+short SpawnedProcess::computeSpawnFlags(const Options& options) {
+  short flags = POSIX_SPAWN_SETSIGDEF;
+  if (options.resetIds_.value_or(false)) {
+    flags |= POSIX_SPAWN_RESETIDS;
+  }
+  return flags;
+}
+#endif
+
 SpawnedProcess::SpawnedProcess(
     const std::vector<std::string>& args,
     Options&& options)
@@ -499,8 +515,9 @@ SpawnedProcess::SpawnedProcess(
     posix_spawn_file_actions_destroy(&actions);
   };
 
-  // Reset signals to default for the child process
-  posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF);
+  checkPosixError(
+      posix_spawnattr_setflags(&attr, computeSpawnFlags(options)),
+      "posix_spawnattr_setflags");
 
 #ifdef __APPLE__
   // Must stay after posix_spawnattr_setflags: setflags overwrites the flags

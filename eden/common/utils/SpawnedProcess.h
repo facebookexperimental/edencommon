@@ -127,6 +127,11 @@ class SpawnedProcess {
     // that will be used to spawn the process.
     Environment& environment();
 
+#ifndef _WIN32
+    /** Reset the child's effective user and group IDs to its real IDs. */
+    void resetIds();
+#endif
+
     // Arranges to duplicate an fd from the parent as targetFd in
     // the child process.
     void dup2(FileDescriptor&& fd, int targetFd);
@@ -210,6 +215,9 @@ class SpawnedProcess {
     std::optional<AbsolutePath> cwd_;
     // Alternative executable image path
     std::optional<AbsolutePath> execPath_;
+#ifndef _WIN32
+    std::optional<bool> resetIds_;
+#endif
 #ifdef _WIN32
     std::optional<DWORD> flags_;
 #endif
@@ -358,6 +366,10 @@ class SpawnedProcess {
 #ifndef _WIN32
   // Retrieve the process id of the child
   pid_t pid() const;
+
+  // Returns the posix_spawnattr flags word implied by `options`.
+  // This is public for the sake of testing.
+  static short computeSpawnFlags(const Options& options);
 #endif
 
  private:
