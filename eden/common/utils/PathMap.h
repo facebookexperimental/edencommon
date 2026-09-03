@@ -8,6 +8,7 @@
 #pragma once
 #include <folly/FBVector.h>
 #include <folly/Portability.h>
+#include <folly/memory/Malloc.h>
 #include <algorithm>
 #include <functional>
 #include <iterator>
@@ -105,8 +106,6 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
   using difference_type = typename Vector::difference_type;
   using pointer = Pair*;
   using const_pointer = const Pair*;
-  using reverse_iterator = typename Vector::reverse_iterator;
-  using const_reverse_iterator = typename Vector::const_reverse_iterator;
 
   // Construct empty.
   explicit PathMap(CaseSensitivity caseSensitive) : compare_(caseSensitive) {}
@@ -183,22 +182,59 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
     return *this;
   }
 
-  // inherit these methods from the underlying vector.
-  using Vector::begin;
-  using Vector::capacity;
-  using Vector::cbegin;
-  using Vector::cend;
-  using Vector::clear;
-  using Vector::crbegin;
-  using Vector::crend;
-  using Vector::empty;
-  using Vector::end;
-  using Vector::erase;
-  using Vector::max_size;
-  using Vector::rbegin;
-  using Vector::rend;
-  using Vector::reserve;
-  using Vector::size;
+  // The storage layout is deliberately not part of this interface: only the
+  // operations below are supported, so that the representation can change
+  // without auditing every caller. In particular there is no random access
+  // to entries, and no reverse iteration.
+
+  iterator begin() {
+    return Vector::begin();
+  }
+  const_iterator begin() const {
+    return Vector::begin();
+  }
+  const_iterator cbegin() const {
+    return Vector::cbegin();
+  }
+
+  iterator end() {
+    return Vector::end();
+  }
+  const_iterator end() const {
+    return Vector::end();
+  }
+  const_iterator cend() const {
+    return Vector::cend();
+  }
+
+  size_type size() const {
+    return Vector::size();
+  }
+  bool empty() const {
+    return Vector::empty();
+  }
+
+  void clear() {
+    Vector::clear();
+  }
+
+  /** Reserve storage for at least `n` entries. */
+  void reserve(size_type n) {
+    Vector::reserve(n);
+  }
+
+  /** Erase the entry referenced by `pos`. Invalidates iterators. */
+  iterator erase(const_iterator pos) {
+    return Vector::erase(pos);
+  }
+
+  /** Bytes of heap storage held for the entries themselves, excluding
+   * anything the keys and values point to. Reported by the map rather than
+   * computed from a capacity so that it stays correct as the storage
+   * layout changes. */
+  size_type estimateStorageBytes() const {
+    return folly::goodMallocSize(sizeof(Pair) * Vector::capacity());
+  }
 
   // Swap contents with another map.
   void swap(PathMap& other) noexcept {
