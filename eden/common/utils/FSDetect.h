@@ -18,6 +18,12 @@ inline bool is_edenfs_fs_type(folly::StringPiece fs_type) {
       (fs_type == "edenfs" || fs_type.startsWith("edenfs:"));
 }
 
+inline bool is_edenfs_nfs_mount(
+    folly::StringPiece fs_type,
+    folly::StringPiece mount_source) {
+  return fs_type == "nfs" && is_edenfs_fs_type(mount_source);
+}
+
 inline bool is_edenfs_fs_mount(
     folly::StringPiece line_entry,
     const std::string& mountPoint) {
