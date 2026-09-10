@@ -252,7 +252,8 @@ class MappedDiskVector {
   MappedDiskVector(const MappedDiskVector&) = delete;
   MappedDiskVector& operator=(const MappedDiskVector&) = delete;
 
-  MappedDiskVector(MappedDiskVector&& other) : file_(std::move(other.file_)) {
+  MappedDiskVector(MappedDiskVector&& other) noexcept
+      : file_(std::move(other.file_)) {
     begin_ = other.begin_;
     end_ = other.end_;
     map_ = other.map_;
@@ -264,7 +265,7 @@ class MappedDiskVector {
     other.mapSizeInBytes_ = 0;
   }
 
-  MappedDiskVector& operator=(MappedDiskVector&& other) {
+  MappedDiskVector& operator=(MappedDiskVector&& other) noexcept {
     if (map_) {
       munmap(map_, mapSizeInBytes_);
     }
