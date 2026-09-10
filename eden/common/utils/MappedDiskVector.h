@@ -33,7 +33,7 @@
 namespace facebook::eden {
 
 struct MappedDiskVectorOptions {
-  // The caller must install a signal handler that uses sigbus_try_handle().
+  // The caller must first call sigbus_install_handler().
   bool useSigbusProtection{false};
 };
 
