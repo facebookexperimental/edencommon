@@ -29,6 +29,7 @@
 #include <folly/testing/TestUtil.h>
 
 using facebook::eden::MappedDiskVector;
+using facebook::eden::MappedDiskVectorOptions;
 using folly::test::TemporaryDirectory;
 
 TEST(MappedDiskVector, roundUpToNonzeroPageSize) {
@@ -59,6 +60,21 @@ struct U64 {
   }
   uint64_t value;
 };
+
+void handleSigbus(int signo, siginfo_t* info, void* ucontext) {
+  if (sigbus_try_handle(signo, info, ucontext)) {
+    return;
+  }
+  _exit(128 + signo);
+}
+
+// A mapping of a truncated file still reads as zeroes from EOF to the end of
+// the last page, so a truncation test must probe an entry on a page that lies
+// entirely beyond the new size. macOS on arm64 uses 16 KiB pages, where the
+// entry at byte offset 8 KiB is still on page zero.
+size_t indexPastFirstPage() {
+  return 2 * static_cast<size_t>(sysconf(_SC_PAGESIZE)) / sizeof(U64);
+}
 } // namespace
 
 TEST_F(MappedDiskVectorTest, grows_file) {
@@ -99,7 +115,6 @@ TEST_F(MappedDiskVectorTest, remembers_contents_on_reopen) {
 TEST_F(MappedDiskVectorTest, set_updates_entry) {
   auto mdv = MappedDiskVector<U64>::open(mdvPath);
   mdv.emplace_back(1ull);
-  mdv.populateEntryForWrite(0);
   mdv.set(0, U64{2});
   EXPECT_EQ(2, mdv.get(0));
 }
@@ -264,6 +279,94 @@ TEST_F(MappedDiskVectorTest, migrates_across_multiple_versions) {
     EXPECT_EQ(2, mdv.get(1).value);
     EXPECT_EQ(3, mdv.get(1).conversionCount);
   }
+}
+
+TEST_F(MappedDiskVectorTest, get_detects_truncated_file) {
+  if (!sigbus_is_protected()) {
+    GTEST_SKIP() << "SIGBUS protection is unavailable";
+  }
+
+  const size_t index = indexPastFirstPage();
+  {
+    auto mdv = MappedDiskVector<U64>::open(mdvPath);
+    for (uint64_t i = 0; i <= index; ++i) {
+      mdv.emplace_back(i);
+    }
+  }
+
+  EXPECT_EXIT(
+      {
+        struct sigaction action = {};
+        action.sa_sigaction = handleSigbus;
+        action.sa_flags = SA_SIGINFO;
+        sigemptyset(&action.sa_mask);
+        if (sigaction(SIGBUS, &action, nullptr) != 0) {
+          _exit(1);
+        }
+
+        MappedDiskVectorOptions options;
+        options.useSigbusProtection = true;
+        auto mdv = MappedDiskVector<U64>::open(mdvPath, options);
+
+        int fd = ::open(mdvPath.c_str(), O_RDWR);
+        if (fd < 0 || ftruncate(fd, 32) != 0) {
+          _exit(1);
+        }
+        ::close(fd);
+
+        try {
+          mdv.get(index);
+          _exit(2);
+        } catch (const std::runtime_error&) {
+          _exit(0);
+        }
+      },
+      testing::ExitedWithCode(0),
+      "");
+}
+
+TEST_F(MappedDiskVectorTest, set_detects_truncated_file) {
+  if (!sigbus_is_protected()) {
+    GTEST_SKIP() << "SIGBUS protection is unavailable";
+  }
+
+  const size_t index = indexPastFirstPage();
+  {
+    auto mdv = MappedDiskVector<U64>::open(mdvPath);
+    for (uint64_t i = 0; i <= index; ++i) {
+      mdv.emplace_back(i);
+    }
+  }
+
+  EXPECT_EXIT(
+      {
+        struct sigaction action = {};
+        action.sa_sigaction = handleSigbus;
+        action.sa_flags = SA_SIGINFO;
+        sigemptyset(&action.sa_mask);
+        if (sigaction(SIGBUS, &action, nullptr) != 0) {
+          _exit(1);
+        }
+
+        MappedDiskVectorOptions options;
+        options.useSigbusProtection = true;
+        auto mdv = MappedDiskVector<U64>::open(mdvPath, options);
+
+        int fd = ::open(mdvPath.c_str(), O_RDWR);
+        if (fd < 0 || ftruncate(fd, 32) != 0) {
+          _exit(1);
+        }
+        ::close(fd);
+
+        try {
+          mdv.set(index, U64{42});
+          _exit(2);
+        } catch (const std::runtime_error&) {
+          _exit(0);
+        }
+      },
+      testing::ExitedWithCode(0),
+      "");
 }
 
 #ifdef __linux__

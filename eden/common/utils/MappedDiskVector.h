@@ -8,7 +8,11 @@
 #pragma once
 
 #include <folly/portability/Unistd.h>
+#include <array>
+#include <bit>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <type_traits>
 
@@ -18,6 +22,7 @@
 #include <folly/FileUtil.h>
 #include <folly/Range.h>
 #include <folly/logging/xlog.h>
+#include <sigbus_memops.h>
 
 #ifndef _WIN32
 #include <fcntl.h>
@@ -26,6 +31,11 @@
 #endif
 
 namespace facebook::eden {
+
+struct MappedDiskVectorOptions {
+  // The caller must install a signal handler that uses sigbus_try_handle().
+  bool useSigbusProtection{false};
+};
 
 namespace detail {
 
@@ -64,6 +74,9 @@ struct RecordTypeRequirements<T, Rest...> {
   static_assert(
       std::is_trivially_move_assignable<T>::value,
       "Records will be relocated in memory");
+  static_assert(
+      std::is_trivially_copyable<T>::value,
+      "Records must be safely copyable to and from mapped storage");
   static_assert(
       std::is_convertible<decltype(T::VERSION), uint32_t>::value,
       "Record's VERSION constant must convert to a uint32_t");
@@ -130,7 +143,8 @@ class MappedDiskVector {
   template <typename... OldVersions>
   static MappedDiskVector open(
       folly::StringPiece path,
-      std::function<void()> afterMmap = nullptr) {
+      std::function<void()> afterMmap = nullptr,
+      MappedDiskVectorOptions options = {}) {
     folly::File file{path, O_RDWR | O_CREAT | O_CLOEXEC, 0600};
 
     if (!file.try_lock()) {
@@ -142,7 +156,7 @@ class MappedDiskVector {
         fstat(file.fd(), &st), "fstat failed on MappedDiskVector path ", path);
 
     if (st.st_size == 0) {
-      return initializeFromScratch(std::move(file));
+      return initializeFromScratch(std::move(file), options);
     }
 
     Header header;
@@ -194,7 +208,11 @@ class MappedDiskVector {
                 header.recordSize));
       }
       return MappedDiskVector{
-          std::move(file), st.st_size, header.entryCount, std::move(afterMmap)};
+          std::move(file),
+          st.st_size,
+          header.entryCount,
+          std::move(afterMmap),
+          options};
     }
 
     // Try to migrate from an old record format if any match.
@@ -217,6 +235,7 @@ class MappedDiskVector {
             st.st_size,
             header.entryCount,
             i,
+            options,
             [](const auto& from) { return T{from}; });
       }
     }
@@ -234,18 +253,27 @@ class MappedDiskVector {
             header.recordVersion));
   }
 
+  template <typename... OldVersions>
+  static MappedDiskVector open(
+      folly::StringPiece path,
+      MappedDiskVectorOptions options) {
+    return open<OldVersions...>(path, nullptr, options);
+  }
+
   /**
    * Creates a new MappedDiskVector at the specified path, overwriting any that
    * was there prior.
    */
-  static MappedDiskVector createOrOverwrite(folly::StringPiece path) {
+  static MappedDiskVector createOrOverwrite(
+      folly::StringPiece path,
+      MappedDiskVectorOptions options = {}) {
     folly::File file{
         path, O_RDWR | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0600};
     if (!file.try_lock()) {
       folly::throwSystemError("failed to acquire lock on ", path);
     }
 
-    return initializeFromScratch(std::move(file));
+    return initializeFromScratch(std::move(file), options);
   }
 
   explicit MappedDiskVector() = delete;
@@ -253,7 +281,8 @@ class MappedDiskVector {
   MappedDiskVector& operator=(const MappedDiskVector&) = delete;
 
   MappedDiskVector(MappedDiskVector&& other) noexcept
-      : file_(std::move(other.file_)) {
+      : file_(std::move(other.file_)),
+        useSigbusProtection_(other.useSigbusProtection_) {
     begin_ = other.begin_;
     end_ = other.end_;
     map_ = other.map_;
@@ -275,6 +304,7 @@ class MappedDiskVector {
     end_ = other.end_;
     map_ = other.map_;
     mapSizeInBytes_ = other.mapSizeInBytes_;
+    useSigbusProtection_ = other.useSigbusProtection_;
 
     other.begin_ = nullptr;
     other.end_ = nullptr;
@@ -301,21 +331,20 @@ class MappedDiskVector {
 
   T get(size_t index) const {
     XCHECK_LT(index, size());
-    return begin_[index];
+    std::array<std::byte, sizeof(T)> bytes;
+    copyFromMapped(bytes.data(), begin_ + index, sizeof(T));
+    return std::bit_cast<T>(bytes);
   }
 
   void set(size_t index, const T& value) {
     XCHECK_LT(index, size());
-    begin_[index] = value;
-  }
-
-  void populateEntryForWrite(size_t index) {
-    XCHECK_LT(index, size());
-    populateForWrite(begin_ + index, sizeof(T));
+    copyToMapped(begin_ + index, &value, sizeof(T));
   }
 
   template <typename... Args>
   void emplace_back(Args&&... args) {
+    T value{std::forward<Args>(args)...};
+
     if (!hasRoom(1)) {
       static_assert(
           sizeof(GROWTH_IN_PAGES) * detail::kPageSize >= sizeof(T),
@@ -369,22 +398,15 @@ class MappedDiskVector {
     }
 
     T* out = end_;
-    populateForWrite(out, sizeof(T));
-    populateForWrite(map_, sizeof(Header));
-
-    new (out) T{std::forward<Args>(args)...}; // may throw
+    copyToMapped(out, &value, sizeof(T));
+    writeEntryCount(size() + 1);
     end_ = out + 1;
-
-    ++header().entryCount;
   }
 
   void pop_back() {
-    // TODO: It might be worth eliminating the end_ pointer and always adding
-    // header().entryCount to begin_.
     XDCHECK_GT(end_, begin_);
-    populateForWrite(map_, sizeof(Header));
+    writeEntryCount(size() - 1);
     --end_;
-    --header().entryCount;
   }
 
  private:
@@ -406,6 +428,45 @@ class MappedDiskVector {
       "header alignment is 16 bytes in case someone uses SSE values");
 
   static constexpr size_t GROWTH_IN_PAGES = 256;
+
+  void copyFromMapped(void* destination, const void* source, size_t length)
+      const {
+    if (useSigbusProtection_) {
+      if (!sigbus_try_memcpy(destination, source, length)) {
+        throw std::runtime_error("failed to read MappedDiskVector entry");
+      }
+      return;
+    }
+    std::memcpy(destination, source, length);
+  }
+
+  void copyToMapped(void* destination, const void* source, size_t length)
+      const {
+    if (useSigbusProtection_) {
+      if (!sigbus_try_memcpy(destination, source, length)) {
+        throw std::runtime_error("failed to write MappedDiskVector entry");
+      }
+      return;
+    }
+    populateForWrite(destination, length);
+    std::memcpy(destination, source, length);
+  }
+
+  void writeEntryCount(size_t count) {
+    const uint64_t entryCount = count;
+    const auto written = folly::pwriteNoInt(
+        file_.fd(),
+        &entryCount,
+        sizeof(entryCount),
+        offsetof(Header, entryCount));
+    if (written == -1) {
+      folly::throwSystemError("failed to update MappedDiskVector entry count");
+    }
+    if (written != sizeof(entryCount)) {
+      throw std::runtime_error(
+          "failed to write complete MappedDiskVector entry count");
+    }
+  }
 
   // Pre-fault pages with write intent to detect disk-full errors as exceptions
   // instead of SIGBUS. Even when fallocate succeeds, pages may be unwritable:
@@ -470,7 +531,9 @@ class MappedDiskVector {
 #endif
   }
 
-  static MappedDiskVector initializeFromScratch(folly::File file) {
+  static MappedDiskVector initializeFromScratch(
+      folly::File file,
+      MappedDiskVectorOptions options) {
     // Start the file large enough to handle the header and a little under one
     // round one of growth.
     constexpr size_t initialSize = GROWTH_IN_PAGES * detail::kPageSize;
@@ -494,15 +557,19 @@ class MappedDiskVector {
       throw std::runtime_error("Failed to write complete initial header");
     }
 
-    return MappedDiskVector{std::move(file), initialSize, header.entryCount};
+    return MappedDiskVector{
+        std::move(file), initialSize, header.entryCount, nullptr, options};
   }
 
   explicit MappedDiskVector(
       folly::File file,
       off_t fileSize,
       size_t currentEntryCount,
-      const std::function<void()>& afterMmap = nullptr)
-      : file_(std::move(file)) {
+      const std::function<void()>& afterMmap = nullptr,
+      MappedDiskVectorOptions options = {})
+      : file_(std::move(file)),
+        useSigbusProtection_(
+            options.useSigbusProtection && sigbus_is_protected()) {
     // It's worth keeping the file and mapping a whole number of pages to
     // avoid wasting an partial page at the end.  Note that this is an
     // optimization and it doesn't matter if kPageSize differs from the
@@ -567,34 +634,6 @@ class MappedDiskVector {
         static_cast<char*>(map_) + mapSizeInBytes_;
   }
 
-  T* data() {
-    return begin();
-  }
-
-  T* begin() {
-    return begin_;
-  }
-
-  const T* begin() const {
-    return begin_;
-  }
-
-  T* end() {
-    return end_;
-  }
-
-  const T* end() const {
-    return end_;
-  }
-
-  Header& header() {
-    return *static_cast<Header*>(map_);
-  }
-
-  const Header& header() const {
-    return *static_cast<Header*>(map_);
-  }
-
   // these two should be at the front of the struct
   T* begin_{nullptr};
   T* end_{nullptr};
@@ -603,6 +642,7 @@ class MappedDiskVector {
   size_t mapSizeInBytes_{0}; // must be nonzero, multiple of page size
 
   folly::File file_;
+  bool useSigbusProtection_{false};
 
   template <typename T_, typename... OldVersions>
   friend struct detail::Migrator;
@@ -618,6 +658,7 @@ struct Migrator<T> {
       off_t /*fileSize*/,
       size_t /*currentEntryCount*/,
       size_t /*oldVersionIndex*/,
+      MappedDiskVectorOptions /*options*/,
       ConvertFn /*convert*/) {
     EDEN_BUG() << "oldVersionIndex >= sizeof...(OldVersions)";
   }
@@ -632,6 +673,7 @@ struct Migrator<T, First, Rest...> {
       off_t fileSize,
       size_t currentEntryCount,
       size_t oldVersionIndex,
+      MappedDiskVectorOptions options,
       ConvertFn convert) {
     using namespace folly::literals;
 
@@ -642,10 +684,10 @@ struct Migrator<T, First, Rest...> {
       // Load it, migrate each element to a new temporary file, and move the
       // temporary file over the original.
       MappedDiskVector<First> original{
-          std::move(file), fileSize, currentEntryCount};
+          std::move(file), fileSize, currentEntryCount, nullptr, options};
 
       auto tmpPath = folly::to<std::string>(path, ".tmp");
-      auto newVector = MappedDiskVector<T>::createOrOverwrite(tmpPath);
+      auto newVector = MappedDiskVector<T>::createOrOverwrite(tmpPath, options);
       try {
         // TODO: newVector.reserve
         for (size_t i = 0; i < original.size(); ++i) {
@@ -670,6 +712,7 @@ struct Migrator<T, First, Rest...> {
         fileSize,
         currentEntryCount,
         oldVersionIndex - 1,
+        options,
         [=](const auto& from) { return convert(First{from}); });
   }
 };
