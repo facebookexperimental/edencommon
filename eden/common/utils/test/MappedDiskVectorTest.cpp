@@ -90,9 +90,17 @@ TEST_F(MappedDiskVectorTest, remembers_contents_on_reopen) {
 
   auto mdv = MappedDiskVector<U64>::open(mdvPath);
   EXPECT_EQ(3, mdv.size());
-  EXPECT_EQ(15, mdv[0]);
-  EXPECT_EQ(25, mdv[1]);
-  EXPECT_EQ(35, mdv[2]);
+  EXPECT_EQ(15, mdv.get(0));
+  EXPECT_EQ(25, mdv.get(1));
+  EXPECT_EQ(35, mdv.get(2));
+}
+
+TEST_F(MappedDiskVectorTest, set_updates_entry) {
+  auto mdv = MappedDiskVector<U64>::open(mdvPath);
+  mdv.emplace_back(1ull);
+  mdv.populateEntryForWrite(0);
+  mdv.set(0, U64{2});
+  EXPECT_EQ(2, mdv.get(0));
 }
 
 TEST_F(MappedDiskVectorTest, pop_back) {
@@ -102,8 +110,8 @@ TEST_F(MappedDiskVectorTest, pop_back) {
   mdv.pop_back();
   mdv.emplace_back(3ull);
   EXPECT_EQ(2, mdv.size());
-  EXPECT_EQ(1, mdv[0]);
-  EXPECT_EQ(3, mdv[1]);
+  EXPECT_EQ(1, mdv.get(0));
+  EXPECT_EQ(3, mdv.get(1));
 }
 
 namespace {
@@ -183,20 +191,20 @@ TEST_F(MappedDiskVectorTest, migrates_from_old_version_to_new) {
   {
     auto mdv = MappedDiskVector<New>::open<Old>(mdvPath);
     EXPECT_EQ(2, mdv.size());
-    EXPECT_EQ(-1, mdv[0].x);
-    EXPECT_EQ(1, mdv[0].y);
-    EXPECT_EQ(-2, mdv[1].x);
-    EXPECT_EQ(2, mdv[1].y);
+    EXPECT_EQ(-1, mdv.get(0).x);
+    EXPECT_EQ(1, mdv.get(0).y);
+    EXPECT_EQ(-2, mdv.get(1).x);
+    EXPECT_EQ(2, mdv.get(1).y);
   }
 
   // and moves the new database over the old one
   {
     auto mdv = MappedDiskVector<New>::open(mdvPath);
     EXPECT_EQ(2, mdv.size());
-    EXPECT_EQ(-1, mdv[0].x);
-    EXPECT_EQ(1, mdv[0].y);
-    EXPECT_EQ(-2, mdv[1].x);
-    EXPECT_EQ(2, mdv[1].y);
+    EXPECT_EQ(-1, mdv.get(0).x);
+    EXPECT_EQ(1, mdv.get(0).y);
+    EXPECT_EQ(-2, mdv.get(1).x);
+    EXPECT_EQ(2, mdv.get(1).y);
   }
 }
 
@@ -238,10 +246,10 @@ TEST_F(MappedDiskVectorTest, migrates_across_multiple_versions) {
 
   {
     auto mdv = MappedDiskVector<V4>::open<V3, V2, V1>(mdvPath);
-    EXPECT_EQ(1, mdv[0].value);
-    EXPECT_EQ(3, mdv[0].conversionCount);
-    EXPECT_EQ(2, mdv[1].value);
-    EXPECT_EQ(3, mdv[1].conversionCount);
+    EXPECT_EQ(1, mdv.get(0).value);
+    EXPECT_EQ(3, mdv.get(0).conversionCount);
+    EXPECT_EQ(2, mdv.get(1).value);
+    EXPECT_EQ(3, mdv.get(1).conversionCount);
   }
 }
 
@@ -563,10 +571,10 @@ TEST_F(MappedDiskVectorTest, migrate_overwrites_existing_tmp_file) {
   {
     auto mdv = MappedDiskVector<New>::open<Old>(mdvPath);
     EXPECT_EQ(2, mdv.size());
-    EXPECT_EQ(-1, mdv[0].x);
-    EXPECT_EQ(1, mdv[0].y);
-    EXPECT_EQ(-2, mdv[1].x);
-    EXPECT_EQ(2, mdv[1].y);
+    EXPECT_EQ(-1, mdv.get(0).x);
+    EXPECT_EQ(1, mdv.get(0).y);
+    EXPECT_EQ(-2, mdv.get(1).x);
+    EXPECT_EQ(2, mdv.get(1).y);
   }
 }
 

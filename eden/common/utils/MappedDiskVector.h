@@ -296,12 +296,14 @@ class MappedDiskVector {
     return (mapSizeInBytes_ - sizeof(Header)) / sizeof(T);
   }
 
-  T& operator[](size_t index) {
+  T get(size_t index) const {
+    XCHECK_LT(index, size());
     return begin_[index];
   }
 
-  const T& operator[](size_t index) const {
-    return begin_[index];
+  void set(size_t index, const T& value) {
+    XCHECK_LT(index, size());
+    begin_[index] = value;
   }
 
   void populateEntryForWrite(size_t index) {
@@ -380,16 +382,6 @@ class MappedDiskVector {
     populateForWrite(map_, sizeof(Header));
     --end_;
     --header().entryCount;
-  }
-
-  T& front() {
-    XDCHECK_GT(end_, begin_);
-    return begin_[0];
-  }
-
-  T& back() {
-    XDCHECK_GT(end_, begin_);
-    return end_[-1];
   }
 
  private:
@@ -654,7 +646,7 @@ struct Migrator<T, First, Rest...> {
       try {
         // TODO: newVector.reserve
         for (size_t i = 0; i < original.size(); ++i) {
-          newVector.emplace_back(convert(original[i]));
+          newVector.emplace_back(convert(original.get(i)));
         }
 
         if (rename(tmpPath.c_str(), path.str().c_str())) {
