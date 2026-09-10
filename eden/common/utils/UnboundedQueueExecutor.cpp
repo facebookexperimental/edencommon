@@ -45,6 +45,8 @@ UnboundedQueueExecutor::UnboundedQueueExecutor(
     std::shared_ptr<folly::ManualExecutor> executor)
     : executor_{std::move(executor)} {}
 
+UnboundedQueueExecutor::~UnboundedQueueExecutor() = default;
+
 size_t UnboundedQueueExecutor::getTaskQueueSize() const {
   if (auto ex =
           std::dynamic_pointer_cast<folly::CPUThreadPoolExecutor>(executor_)) {
@@ -53,6 +55,13 @@ size_t UnboundedQueueExecutor::getTaskQueueSize() const {
   // manual executor does not expose a way to count the number of pending
   // tasks.
   return 0;
+}
+
+void UnboundedQueueExecutor::join() {
+  if (auto ex =
+          std::dynamic_pointer_cast<folly::CPUThreadPoolExecutor>(executor_)) {
+    ex->join();
+  }
 }
 
 } // namespace facebook::eden

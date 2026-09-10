@@ -41,6 +41,8 @@ class UnboundedQueueExecutor : public folly::Executor {
   explicit UnboundedQueueExecutor(
       std::shared_ptr<folly::ManualExecutor> executor);
 
+  ~UnboundedQueueExecutor() override;
+
   UnboundedQueueExecutor(const UnboundedQueueExecutor&) = delete;
   UnboundedQueueExecutor& operator=(const UnboundedQueueExecutor&) = delete;
   UnboundedQueueExecutor(UnboundedQueueExecutor&&) = delete;
@@ -51,6 +53,8 @@ class UnboundedQueueExecutor : public folly::Executor {
   }
 
   size_t getTaskQueueSize() const;
+
+  void join();
 
  private:
   std::shared_ptr<folly::Executor> executor_;
