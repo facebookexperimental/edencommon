@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <utility>
 
 #ifdef __linux__
 #include <linux/filter.h>
@@ -101,6 +102,18 @@ TEST_F(MappedDiskVectorTest, set_updates_entry) {
   mdv.populateEntryForWrite(0);
   mdv.set(0, U64{2});
   EXPECT_EQ(2, mdv.get(0));
+}
+
+TEST_F(MappedDiskVectorTest, move_assignment_transfers_contents) {
+  auto mdv = MappedDiskVector<U64>::open(mdvPath);
+  mdv.emplace_back(7ull);
+
+  auto other =
+      MappedDiskVector<U64>::open((tmpDir.path() / "other.mdv").string());
+  other = std::move(mdv);
+
+  EXPECT_EQ(1, other.size());
+  EXPECT_EQ(7, other.get(0));
 }
 
 TEST_F(MappedDiskVectorTest, pop_back) {

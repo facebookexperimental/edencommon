@@ -280,6 +280,8 @@ class MappedDiskVector {
     other.end_ = nullptr;
     other.map_ = nullptr;
     other.mapSizeInBytes_ = 0;
+
+    return *this;
   }
 
   ~MappedDiskVector() {
