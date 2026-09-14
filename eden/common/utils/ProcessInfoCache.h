@@ -8,6 +8,7 @@
 #pragma once
 
 #include <chrono>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
@@ -128,14 +129,22 @@ class ProcessInfoCache {
    * information retrieved from the process by the worker thread.
    */
   struct ReadFuncConfig {
+    using AttributionFunc =
+        std::function<std::optional<ProcessAttribution>(pid_t pid)>;
+
     // Whether to fetch the user info for the process.
     bool fetchUserInfo;
     ReadUserInfoConfig readUserInfoConfig;
+    // Computes ProcessInfo::attribution. Runs on the worker thread, so it may
+    // inspect the process (procfs and the like). Null disables it.
+    AttributionFunc attribution;
     ReadFuncConfig(
         bool fetchUserInfo = false,
-        ReadUserInfoConfig readUserInfoConfig = ReadUserInfoConfig())
+        ReadUserInfoConfig readUserInfoConfig = ReadUserInfoConfig(),
+        AttributionFunc attribution = nullptr)
         : fetchUserInfo(fetchUserInfo),
-          readUserInfoConfig(readUserInfoConfig) {}
+          readUserInfoConfig(readUserInfoConfig),
+          attribution(std::move(attribution)) {}
   };
 
   /**
@@ -149,7 +158,7 @@ class ProcessInfoCache {
             expiry,
             nullptr,
             nullptr,
-            makeReadProcessInfoFunc(config),
+            makeReadProcessInfoFunc(std::move(config)),
             nullptr) {}
 
   ~ProcessInfoCache();

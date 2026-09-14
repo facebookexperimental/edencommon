@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <folly/container/F14Map.h>
 #include <folly/portability/SysTypes.h>
 #include <array>
 #include <optional>
@@ -32,6 +33,8 @@ using ProcessName = std::string;
  * process path.
  */
 using ProcessSimpleName = std::string;
+
+using ProcessAttribution = folly::F14FastMap<std::string, std::string>;
 
 /**
  * Allows configuring how ProcessUserInfo is read in readUserInfo function
@@ -93,6 +96,10 @@ struct ProcessInfo {
   ProcessName name;
   ProcessSimpleName simpleName;
   std::optional<ProcessUserInfo> userInfo;
+  // Opaque fields describing what the process runs under, produced by
+  // ProcessInfoCache::ReadFuncConfig::attribution when one is configured and
+  // it recognizes the process.
+  std::optional<ProcessAttribution> attribution;
 };
 
 /**

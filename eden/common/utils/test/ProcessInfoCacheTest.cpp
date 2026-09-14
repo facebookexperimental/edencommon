@@ -118,7 +118,8 @@ struct Fixture : ::testing::Test, ProcessInfoCache::ThreadLocalCache {
 Fixture* Fixture::ThisHolder::this_ = nullptr;
 
 TEST_F(Fixture, lookup_expires) {
-  (*infos.wlock())[10] = {0, "watchman", "watchman", std::nullopt};
+  (*infos.wlock())[10] = {
+      0, "watchman", "watchman", std::nullopt, std::nullopt};
   auto lookup = pic.lookup(10);
   EXPECT_EQ("watchman", lookup.get().name);
 
@@ -126,12 +127,12 @@ TEST_F(Fixture, lookup_expires) {
 
   // For the info to expire, we either need to add some new pids and trip the
   // water level check, or call getAllProcessInfos.
-  (*infos.wlock())[11] = {0, "new", "new", std::nullopt};
-  (*infos.wlock())[12] = {0, "newer", "newer", std::nullopt};
+  (*infos.wlock())[11] = {0, "new", "new", std::nullopt, std::nullopt};
+  (*infos.wlock())[12] = {0, "newer", "newer", std::nullopt, std::nullopt};
   EXPECT_EQ("new", pic.lookup(11).get().name);
   EXPECT_EQ("newer", pic.lookup(12).get().name);
 
-  (*infos.wlock())[10] = {0, "edenfs", "edenfs", std::nullopt};
+  (*infos.wlock())[10] = {0, "edenfs", "edenfs", std::nullopt, std::nullopt};
   EXPECT_EQ("edenfs", pic.lookup(10).get().name);
 
   // But the old lookup should still have the old info.
@@ -207,6 +208,25 @@ TEST(ProcessInfoCache, fetchUserInfo) {
     EXPECT_TRUE(info.get().userInfo.has_value());
 #endif
   }
+}
+
+TEST(ProcessInfoCache, attributionDisabledByDefault) {
+  ProcessInfoCache processInfoCache = ProcessInfoCache();
+  auto info = processInfoCache.lookup(getpid());
+  EXPECT_FALSE(info.get().attribution.has_value());
+}
+
+TEST(ProcessInfoCache, attributionFromCallback) {
+  ProcessInfoCache processInfoCache = ProcessInfoCache(
+      ProcessInfoCache::ReadFuncConfig(
+          false, ReadUserInfoConfig(), [](pid_t pid) {
+            return std::optional{ProcessAttribution{
+                {"source", "test"}, {"pid", std::to_string(pid)}}};
+          }));
+  auto info = processInfoCache.lookup(getpid());
+  const ProcessAttribution expected{
+      {"source", "test"}, {"pid", std::to_string(getpid())}};
+  EXPECT_EQ(info.get().attribution, expected);
 }
 
 TEST(ProcessInfoCache, multipleLookups) {
