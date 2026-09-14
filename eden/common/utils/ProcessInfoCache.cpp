@@ -405,9 +405,11 @@ std::optional<ProcessInfo> ProcessInfoCache::getProcessInfo(pid_t pid) {
 }
 
 std::optional<ProcessName> ProcessInfoCache::getProcessName(pid_t pid) {
-  auto info = getProcessInfo(pid);
-  if (info.has_value()) {
-    return info.value().name;
+  auto state = state_.rlock();
+  if (auto* nodep = folly::get_ptr(state->infos, pid)) {
+    if ((*nodep)->quickAccessToInfo_.isReady()) {
+      return (*nodep)->quickAccessToInfo_.value().name;
+    }
   }
   return std::nullopt;
 }
