@@ -408,6 +408,87 @@ TEST(PathMap, swap) {
   EXPECT_EQ("foo", a.at("foo"_pc));
 }
 
+TEST(PathMap, mutationCount) {
+  PathMap<int> map(CaseSensitivity::Sensitive);
+  auto count = map.mutationCount();
+  auto expectChanged = [&](std::string_view what) {
+    EXPECT_GT(map.mutationCount(), count) << what;
+    count = map.mutationCount();
+  };
+  auto expectUnchanged = [&](std::string_view what) {
+    EXPECT_EQ(map.mutationCount(), count) << what;
+  };
+
+  EXPECT_TRUE(map.emplace("b"_pc, 1).second);
+  expectChanged("emplace");
+  EXPECT_FALSE(map.emplace("b"_pc, 2).second);
+  expectUnchanged("emplace of an existing key");
+  EXPECT_TRUE(map.insert(std::make_pair(PathComponent{"a"}, 3)).second);
+  expectChanged("out-of-order insert");
+  EXPECT_FALSE(map.insert_or_assign("a"_pc, 4).second);
+  expectChanged("insert_or_assign of an existing key");
+  EXPECT_TRUE(map.insert_or_assign("c"_pc, 5).second);
+  expectChanged("insert_or_assign of a new key");
+  map["d"_pc] = 6;
+  expectChanged("operator[] inserting");
+  map["d"_pc] = 7;
+  expectUnchanged("assignment through operator[] to an existing key");
+
+  EXPECT_NE(map.find("a"_pc), map.end());
+  EXPECT_EQ(map.at("b"_pc), 1);
+  EXPECT_NE(map.lower_bound("b"_pc), map.end());
+  EXPECT_EQ(map.count("zzz"_pc), 0);
+  for (auto& entry : map) {
+    entry.second += 1;
+  }
+  expectUnchanged("lookups, iteration and assignment through iterators");
+
+  EXPECT_EQ(map.erase("zzz"_pc), 0);
+  expectUnchanged("erase of a missing key");
+  EXPECT_EQ(map.erase("a"_pc), 1);
+  expectChanged("erase by key");
+  map.erase(map.find("b"_pc));
+  expectChanged("erase by iterator");
+  map.compact();
+  count = map.mutationCount();
+  map.compact();
+  expectUnchanged("compact with nothing pending or tombstoned");
+
+  // A large map keeps out-of-order inserts pending, so compaction has work.
+  for (int i = 0; i < 40; ++i) {
+    map.emplace(PathComponentPiece{fmt::format("z{:02}", i)}, i);
+  }
+  count = map.mutationCount();
+  map.emplace("m"_pc, 0);
+  expectChanged("pending insert");
+  map.compact();
+  expectChanged("compact folding the pending region");
+
+  map.reserve(map.size() * 4);
+  expectChanged("reserve that reallocates");
+  map.reserve(1);
+  expectUnchanged("reserve within capacity");
+  map.clear();
+  expectChanged("clear");
+
+  // Swap and assignment count as mutations of both maps, and neither map
+  // takes over the other's count.
+  PathMap<int> other(CaseSensitivity::Sensitive);
+  other.emplace("x"_pc, 1);
+  auto otherCount = other.mutationCount();
+  map.swap(other);
+  expectChanged("swap");
+  EXPECT_GT(other.mutationCount(), otherCount);
+  otherCount = other.mutationCount();
+  other = map;
+  EXPECT_GT(other.mutationCount(), otherCount);
+  expectUnchanged("being copied from");
+  PathMap<int> moved(std::move(map));
+  expectChanged("being moved from");
+  map = std::move(moved);
+  expectChanged("move assignment");
+}
+
 TEST(PathMapTest, collatePathMaps_empty) {
   auto a = PathMap<int>{{}, CaseSensitivity::Insensitive};
   auto b = PathMap<char>{{}, CaseSensitivity::Insensitive};

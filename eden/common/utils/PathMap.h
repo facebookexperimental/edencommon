@@ -114,6 +114,9 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
   VectorSizeType deadCount_{0};
   std::unique_ptr<std::vector<bool>> tombstones_;
 
+  // See mutationCount().
+  uint64_t mutationCount_{0};
+
   // Compaction cost is O(size), so it is only worth batching this many
   // mutations at a minimum.
   static constexpr VectorSizeType kMinCompactionBatch = 32;
@@ -324,7 +327,9 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
         compare_(other.compare_),
         sortedEnd_(std::exchange(other.sortedEnd_, 0)),
         deadCount_(std::exchange(other.deadCount_, 0)),
-        tombstones_(std::move(other.tombstones_)) {}
+        tombstones_(std::move(other.tombstones_)) {
+    ++other.mutationCount_;
+  }
   PathMap& operator=(PathMap&& other) {
     other.swap(*this);
     return *this;
@@ -367,11 +372,29 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
     sortedEnd_ = 0;
     deadCount_ = 0;
     tombstones_.reset();
+    ++mutationCount_;
   }
 
   /** Reserve storage for at least `n` entries. */
   void reserve(size_type n) {
+    if (n > Vector::capacity()) {
+      ++mutationCount_;
+    }
     Vector::reserve(n);
+  }
+
+  /** Number of operations so far that may have inserted, removed,
+   * reordered or relocated entries: every insert, erase, compaction,
+   * clear, swap, assignment and growing reserve. insert_or_assign counts
+   * even when it only replaces an existing entry's value, so callers can
+   * use the count to notice a replaced mapping. Lookups and iteration
+   * leave it unchanged, as does assigning to a mapped value through a
+   * reference or iterator. The count never decreases for a given map
+   * object and is never taken over from another map, so a caller that
+   * recorded it alongside pointers or iterators into the map can compare
+   * the count alone to learn whether they are still valid. */
+  uint64_t mutationCount() const noexcept {
+    return mutationCount_;
   }
 
   /** Erase the entry referenced by `pos`. Invalidates iterators.
@@ -380,6 +403,7 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
    * erasing in descending order should erase by key instead. */
   iterator erase(const_iterator pos) {
     XDCHECK_EQ(pos.map_, this);
+    ++mutationCount_;
     switch (eraseAt(pos)) {
       case EraseAction::RemovedPending:
         return iterator{this, pos.sortedIdx_, pos.pendingIdx_};
@@ -423,6 +447,8 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
     std::swap(sortedEnd_, other.sortedEnd_);
     std::swap(deadCount_, other.deadCount_);
     std::swap(tombstones_, other.tombstones_);
+    ++mutationCount_;
+    ++other.mutationCount_;
   }
 
   /** Fold the pending region into the sorted prefix and drop tombstoned
@@ -431,6 +457,10 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
    * callers that finish a batch of mutations and want to pay the cost
    * eagerly. Invalidates iterators. */
   void compact() {
+    if (deadCount_ == 0 && sortedEnd_ == rawSize()) {
+      return;
+    }
+    ++mutationCount_;
     if (deadCount_ != 0) {
       removeDead();
     }
@@ -543,6 +573,7 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
     if (iter == end()) {
       return 0;
     }
+    ++mutationCount_;
     // Unlike erase(pos), skip locating the following entry: that walk is
     // what would make erasing a map in descending key order quadratic.
     if (eraseAt(iter) == EraseAction::Tombstoned && deadCount_ > deadLimit()) {
@@ -731,6 +762,7 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
       Vector::emplace_back(
           Key(key), Value(std::forward<ValueArgs>(valueArgs)...));
       ++sortedEnd_;
+      ++mutationCount_;
       return {iterator{this, sortedEnd_ - 1, rawSize()}, true};
     }
     const auto prefixIdx = prefixLowerBound(key);
@@ -739,6 +771,7 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
     if (prefixMatch && !isDead(prefixIdx)) {
       if constexpr (kAssignOnMatch) {
         rawAt(prefixIdx).second = Value(std::forward<ValueArgs>(valueArgs)...);
+        ++mutationCount_;
       }
       return {iterator{this, prefixIdx, pendingLowerBound(key)}, false};
     }
@@ -746,6 +779,7 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
     if (pendingIdx != rawSize() && !compare_(key, rawAt(pendingIdx).first)) {
       if constexpr (kAssignOnMatch) {
         rawAt(pendingIdx).second = Value(std::forward<ValueArgs>(valueArgs)...);
+        ++mutationCount_;
       }
       return {iterator{this, skipDead(prefixIdx), pendingIdx}, false};
     }
@@ -755,6 +789,7 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
       rawAt(prefixIdx).first = Key(key);
       rawAt(prefixIdx).second = Value(std::forward<ValueArgs>(valueArgs)...);
       (*tombstones_)[prefixIdx] = false;
+      ++mutationCount_;
       if (--deadCount_ == 0) {
         // Drop the bitmap so lookups and iteration take the tombstone-free
         // path, as after a compaction.
@@ -766,6 +801,7 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
         Vector::begin() + pendingIdx,
         Key(key),
         Value(std::forward<ValueArgs>(valueArgs)...));
+    ++mutationCount_;
     if (rawSize() - sortedEnd_ > pendingLimit()) {
       compact();
       // Compaction moved the new entry; re-find it.
