@@ -154,4 +154,5 @@ CO_TEST_F(MyTestFixture, coFaultInjection) {
 - `co_invoke` is needed because `collectAll` requires `Task<T>`, not `now_task`
 - See D98081895 for a real example in `SaplingBackingStoreTest.cpp`
 
-**Note:** For using fault injection in Python integration tests (thrift-based `FaultDefinition`, `wait_on_fault_hit`), see the example in `eden/integration/README.md`.
+For Python integration tests, see `run_with_blocking_fault()` and
+`wait_on_fault_hit()` in `fbcode/eden/integration/lib/testcase.py`.
