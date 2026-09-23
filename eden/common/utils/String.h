@@ -8,6 +8,7 @@
 #pragma once
 
 #include <fmt/core.h>
+#include <string>
 #include <string_view>
 #include <vector>
 
