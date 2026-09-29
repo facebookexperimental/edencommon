@@ -22,6 +22,8 @@ struct TelemetryStats : StatsGroup<TelemetryStats> {
   Counter xplatWriteZeroOkRecords{"telemetry.xplat_write_zero_ok_records"};
   Counter xplatWriteFailures{"telemetry.xplat_write_failures"};
   Counter xplatBackoffWaits{"telemetry.xplat_backoff_waits"};
+  Counter xplatWriteTimeouts{"telemetry.xplat_write_timeouts"};
+  Duration xplatWriteDuration{"telemetry.xplat_write_us"};
   Counter fileAccessViaXplatLogger{"telemetry.file_access_via_xplat_logger"};
   Counter errorsViaXplatLogger{"telemetry.errors_via_xplat_logger"};
   Counter errorsRateLimited{"telemetry.errors_rate_limited"};
