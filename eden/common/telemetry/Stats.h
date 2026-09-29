@@ -24,6 +24,7 @@ struct TelemetryStats : StatsGroup<TelemetryStats> {
   Counter xplatBackoffWaits{"telemetry.xplat_backoff_waits"};
   Counter fileAccessViaXplatLogger{"telemetry.file_access_via_xplat_logger"};
   Counter errorsViaXplatLogger{"telemetry.errors_via_xplat_logger"};
+  Counter errorsRateLimited{"telemetry.errors_rate_limited"};
 };
 
 } // namespace facebook::eden
