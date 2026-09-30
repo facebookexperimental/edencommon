@@ -21,6 +21,8 @@ struct TelemetryStats : StatsGroup<TelemetryStats> {
       "telemetry.xplat_messages_dropped_shutdown"};
   Counter xplatMessagesDroppedWriteFailures{
       "telemetry.xplat_messages_dropped_write_failures"};
+  Counter xplatMessagesDroppedTimedOut{
+      "telemetry.xplat_messages_dropped_timed_out"};
   Counter xplatWriteZeroOkRecords{"telemetry.xplat_write_zero_ok_records"};
   Counter xplatWriteFailures{"telemetry.xplat_write_failures"};
   Counter xplatBackoffWaits{"telemetry.xplat_backoff_waits"};
