@@ -408,6 +408,60 @@ TEST(PathMap, swap) {
   EXPECT_EQ("foo", a.at("foo"_pc));
 }
 
+namespace facebook::eden {
+struct PathMapTestAccess {
+  template <typename V, typename K>
+  static size_t deadCount(const PathMap<V, K>& map) {
+    return map.deadCount_;
+  }
+  template <typename V, typename K>
+  static size_t deadLimit(const PathMap<V, K>& map) {
+    return map.deadLimit();
+  }
+};
+} // namespace facebook::eden
+
+namespace {
+PathMap<int> mapWithTombstonesAtTheLimit() {
+  PathMap<int> map(CaseSensitivity::Sensitive);
+  for (int i = 0; i < 199; ++i) {
+    map.emplace(PathComponent{fmt::format("k{:03}", i)}, i);
+  }
+  map.emplace("a"_pc, 1000);
+  for (int i = 0; i < 40; ++i) {
+    map.erase(PathComponentPiece{fmt::format("k{:03}", i)});
+  }
+  EXPECT_EQ(
+      PathMapTestAccess::deadCount(map), PathMapTestAccess::deadLimit(map));
+  return map;
+}
+} // namespace
+
+TEST(PathMap, erasePendingEntryByKeyAtTombstoneLimit) {
+  auto map = mapWithTombstonesAtTheLimit();
+  EXPECT_EQ(1u, map.erase("a"_pc));
+  EXPECT_EQ(
+      PathMapTestAccess::deadLimit(map) + 1, PathMapTestAccess::deadCount(map));
+  EXPECT_EQ(159u, map.size());
+  EXPECT_EQ(map.end(), map.find("a"_pc));
+  EXPECT_NE(map.end(), map.find("k040"_pc));
+}
+
+TEST(PathMap, erasePendingEntryByIteratorAtTombstoneLimit) {
+  auto map = mapWithTombstonesAtTheLimit();
+  auto next = map.erase(map.find("a"_pc));
+  EXPECT_EQ(
+      PathMapTestAccess::deadLimit(map) + 1, PathMapTestAccess::deadCount(map));
+  EXPECT_EQ(159u, map.size());
+  ASSERT_NE(map.end(), next);
+  EXPECT_EQ("k040"_pc, next->first);
+  size_t remaining = 0;
+  for (; next != map.end(); ++next) {
+    ++remaining;
+  }
+  EXPECT_EQ(159u, remaining);
+}
+
 TEST(PathMap, mutationCount) {
   PathMap<int> map(CaseSensitivity::Sensitive);
   auto count = map.mutationCount();
