@@ -437,21 +437,21 @@ PathMap<int> mapWithTombstonesAtTheLimit() {
 }
 } // namespace
 
-TEST(PathMap, erasePendingEntryByKeyAtTombstoneLimit) {
+TEST(PathMap, erasingPendingEntryByKeyKeepsTombstonesWithinLimit) {
   auto map = mapWithTombstonesAtTheLimit();
   EXPECT_EQ(1u, map.erase("a"_pc));
-  EXPECT_EQ(
-      PathMapTestAccess::deadLimit(map) + 1, PathMapTestAccess::deadCount(map));
+  EXPECT_LE(
+      PathMapTestAccess::deadCount(map), PathMapTestAccess::deadLimit(map));
   EXPECT_EQ(159u, map.size());
   EXPECT_EQ(map.end(), map.find("a"_pc));
   EXPECT_NE(map.end(), map.find("k040"_pc));
 }
 
-TEST(PathMap, erasePendingEntryByIteratorAtTombstoneLimit) {
+TEST(PathMap, erasingPendingEntryByIteratorKeepsTombstonesWithinLimit) {
   auto map = mapWithTombstonesAtTheLimit();
   auto next = map.erase(map.find("a"_pc));
-  EXPECT_EQ(
-      PathMapTestAccess::deadLimit(map) + 1, PathMapTestAccess::deadCount(map));
+  EXPECT_LE(
+      PathMapTestAccess::deadCount(map), PathMapTestAccess::deadLimit(map));
   EXPECT_EQ(159u, map.size());
   ASSERT_NE(map.end(), next);
   EXPECT_EQ("k040"_pc, next->first);

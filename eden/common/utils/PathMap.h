@@ -404,15 +404,17 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
   iterator erase(const_iterator pos) {
     XDCHECK_EQ(pos.map_, this);
     ++mutationCount_;
+    auto nextSorted = pos.sortedIdx_;
     switch (eraseAt(pos)) {
       case EraseAction::RemovedPending:
-        return iterator{this, pos.sortedIdx_, pos.pendingIdx_};
+        break;
       case EraseAction::RemovedSorted:
+        // Only taken while there are no tombstones, so nothing to compact.
         return iterator{this, pos.sortedIdx_, pos.pendingIdx_ - 1};
       case EraseAction::Tombstoned:
+        nextSorted = skipDead(pos.sortedIdx_ + 1);
         break;
     }
-    const auto nextSorted = skipDead(pos.sortedIdx_ + 1);
     if (deadCount_ > deadLimit()) {
       // Compaction moves entries, so remember the next entry by key and
       // re-find it afterwards.
@@ -576,7 +578,8 @@ class PathMap : private folly::fbvector<std::pair<Key, Value>> {
     ++mutationCount_;
     // Unlike erase(pos), skip locating the following entry: that walk is
     // what would make erasing a map in descending key order quadratic.
-    if (eraseAt(iter) == EraseAction::Tombstoned && deadCount_ > deadLimit()) {
+    eraseAt(iter);
+    if (deadCount_ > deadLimit()) {
       compact();
     }
     return 1;
