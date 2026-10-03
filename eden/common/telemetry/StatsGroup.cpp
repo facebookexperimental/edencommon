@@ -9,19 +9,19 @@
 
 #include <chrono>
 
+#include <fb303/Timeseries.h>
 #include <folly/logging/xlog.h>
 
 namespace facebook::eden {
 
 StatsGroupBase::Counter::Counter(std::string_view name)
-    : Stat{
-          name,
-          fb303::ExportTypeConsts::kSumCountAvg,
-          // Don't record quantiles for counters. Usually "1" is the only value
-          // added. Usually we care about counts and rates.
-          {},
-          fb303::SlidingWindowPeriodConsts::kOneMinTenMin,
-      }, name_{name} {
+    : name_{name},
+      stat_{
+          std::string{name},
+          fb303::MinuteTenMinuteTimeSeries<fb303::CounterType>{},
+          fb303::SUM,
+          fb303::COUNT,
+          fb303::AVG} {
   // TODO: enforce the name matches the StatsGroup prefix.
 }
 

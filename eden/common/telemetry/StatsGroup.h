@@ -7,8 +7,10 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 
+#include <fb303/ThreadCachedServiceData.h>
 #include <fb303/detail/QuantileStatWrappers.h>
 #include <folly/ThreadLocal.h>
 
@@ -28,8 +30,14 @@ class StatsGroupBase {
  public:
   /**
    * Counter is used to record events.
+   *
+   * Values accumulate in a thread-local cell and reach the exported fb303
+   * timeseries when the ThreadCachedServiceData publish thread runs or on
+   * EdenStats::flush(), so a reader that needs this instant's value must
+   * publish first. The exported keys are the same `.sum`, `.count` and
+   * `.avg` at one minute, ten minutes and all time as before.
    */
-  class Counter : private Stat {
+  class Counter {
    public:
     explicit Counter(std::string_view name);
 
@@ -37,10 +45,13 @@ class StatsGroupBase {
       return name_;
     }
 
-    using Stat::addValue;
+    void addValue(int64_t value) {
+      stat_.add(value);
+    }
 
    private:
     std::string_view name_;
+    fb303::TimeseriesWrapper stat_;
   };
 
   /**
