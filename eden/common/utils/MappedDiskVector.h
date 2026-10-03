@@ -453,19 +453,26 @@ class MappedDiskVector {
   }
 
   void writeEntryCount(size_t count) {
-    const uint64_t entryCount = count;
-    const auto written = folly::pwriteNoInt(
-        file_.fd(),
-        &entryCount,
-        sizeof(entryCount),
-        offsetof(Header, entryCount));
-    if (written == -1) {
-      folly::throwSystemError("failed to update MappedDiskVector entry count");
+    // The header is the first page of the same shared mapping as the
+    // entries, so a store through it reaches the file exactly like the
+    // entries do, without a write syscall per append. It must be a single
+    // aligned 8-byte store: the protected memcpy copies byte by byte, and a
+    // crash between two of its bytes would persist a count that is neither
+    // the old one nor the new one.
+    static_assert(
+        offsetof(Header, entryCount) % alignof(uint64_t) == 0,
+        "entry count must be naturally aligned for a single store");
+    uint64_t* entryCount = &static_cast<Header*>(map_)->entryCount;
+    const uint64_t value = count;
+    if (useSigbusProtection_) {
+      if (!sigbus_try_store_u64(entryCount, value)) {
+        throw std::runtime_error(
+            "failed to write MappedDiskVector entry count");
+      }
+      return;
     }
-    if (written != sizeof(entryCount)) {
-      throw std::runtime_error(
-          "failed to write complete MappedDiskVector entry count");
-    }
+    populateForWrite(entryCount, sizeof(*entryCount));
+    *static_cast<volatile uint64_t*>(entryCount) = value;
   }
 
   // Pre-fault pages with write intent to detect disk-full errors as exceptions
