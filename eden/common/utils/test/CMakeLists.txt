@@ -12,6 +12,7 @@ add_executable(
     IoFutureTest.cpp
     MemoryTest.cpp
     PathFuncsTest.cpp
+    ProcMountInfoTest.cpp
     ProcessInfoCacheTest.cpp
     ProcessInfoTest.cpp
     RefPtrTest.cpp
