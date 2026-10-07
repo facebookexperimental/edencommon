@@ -7,6 +7,9 @@
 
 #include "eden/common/utils/ProcessInfoCache.h"
 
+#include <chrono>
+#include <thread>
+
 #include <folly/portability/GTest.h>
 #include <folly/system/ThreadName.h>
 
@@ -123,14 +126,23 @@ TEST_F(Fixture, lookup_expires) {
   auto lookup = pic.lookup(10);
   EXPECT_EQ("watchman", lookup.get().name);
 
+  // Finish the initial worker batch before advancing time, so its cleanup
+  // cannot expire PID 10 before the new lookups trigger eviction.
+  ASSERT_EQ(1, pic.getAllProcessInfos().size());
+
   clock.advance(10);
 
-  // For the info to expire, we either need to add some new pids and trip the
-  // water level check, or call getAllProcessInfos.
+  // Add new PIDs to trigger the water-level cleanup.
   (*infos.wlock())[11] = {0, "new", "new", std::nullopt, std::nullopt};
   (*infos.wlock())[12] = {0, "newer", "newer", std::nullopt, std::nullopt};
   EXPECT_EQ("new", pic.lookup(11).get().name);
   EXPECT_EQ("newer", pic.lookup(12).get().name);
+
+  // Queue a fresh lookup after PID 12 completes. Its future cannot become
+  // ready until the worker finishes the previous batch, including eviction.
+  pic.lookup(13).get();
+  ASSERT_FALSE(pic.getProcessInfo(10).has_value())
+      << "PID 10 was not evicted after adding new PIDs";
 
   (*infos.wlock())[10] = {0, "edenfs", "edenfs", std::nullopt, std::nullopt};
   EXPECT_EQ("edenfs", pic.lookup(10).get().name);
