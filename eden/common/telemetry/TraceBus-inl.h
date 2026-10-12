@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <folly/ExceptionString.h>
+#include <folly/lang/Exception.h>
 #include <folly/logging/xlog.h>
 #include <folly/system/ThreadName.h>
 
@@ -63,25 +65,36 @@ template <typename... Args>
 void TraceBus<TraceEvent>::publish(Args&&... args) noexcept {
   static_assert(std::is_nothrow_constructible_v<TraceEvent, Args&&...>);
 
-  bool wake;
-  {
-    auto state = state_.lock();
-    XCHECK(!state->done) << "Illegal to publish concurrently with destruction";
-    if (state->writeBuffer.size() == bufferCapacity_) {
-      // If the buffer is full then the capacity is potentially set too low. Log
-      // an appropriate warning and then block until we have room to append the
-      // current event.
-      logFullOnce();
-      fullCV_.wait(state.as_lock(), [&] {
-        return state->writeBuffer.size() < bufferCapacity_;
-      });
+  try {
+    bool wake;
+    {
+      auto state = state_.lock();
+      XCHECK(!state->done)
+          << "Illegal to publish concurrently with destruction";
+      if (state->writeBuffer.size() == bufferCapacity_) {
+        // If the buffer is full then the capacity is potentially set too low.
+        // Log an appropriate warning and then block until we have room to
+        // append the current event.
+        logFullOnce();
+        fullCV_.wait(state.as_lock(), [&] {
+          return state->writeBuffer.size() < bufferCapacity_;
+        });
+      }
+      wake = state->writeBuffer.empty();
+      state->writeBuffer.emplace_back(std::forward<Args>(args)...);
+      state->sequenceNumber++;
     }
-    wake = state->writeBuffer.empty();
-    state->writeBuffer.emplace_back(std::forward<Args>(args)...);
-    state->sequenceNumber++;
-  }
-  if (wake) {
-    emptyCV_.notify_one();
+    if (wake) {
+      emptyCV_.notify_one();
+    }
+  } catch (...) {
+    // Leaving a noexcept function would terminate without saying what was
+    // thrown.
+    XLOGF(
+        FATAL,
+        "TraceBus {} could not publish an event: {}",
+        name_,
+        folly::exceptionStr(folly::current_exception()));
   }
 }
 
