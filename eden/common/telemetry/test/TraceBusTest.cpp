@@ -104,6 +104,28 @@ TEST(TraceBusTest, unsubscribe_before_publish) {
   XCHECK(1 == i || i == 3) << i << " must be 1 or 3";
 }
 
+TEST(TraceBusTest, unsubscribe_destroys_subscriber_without_a_publish) {
+  // A subscriber may own something that must be released when the
+  // subscription ends, such as a Thrift stream publisher. That release must
+  // not wait for the next event to be published on the bus.
+  struct Owned {
+    explicit Owned(folly::Promise<folly::Unit> p) : destroyed{std::move(p)} {}
+    ~Owned() {
+      destroyed.setValue();
+    }
+    folly::Promise<folly::Unit> destroyed;
+  };
+  folly::Promise<folly::Unit> promise;
+  auto destroyed = promise.getSemiFuture();
+
+  auto bus = TraceBus<int>::create("bus", 10);
+  auto handle = bus->subscribeFunction(
+      "sub", [owned = std::make_shared<Owned>(std::move(promise))](int) {});
+  handle.reset();
+
+  EXPECT_TRUE(std::move(destroyed).wait(10s));
+}
+
 TEST(TraceBusTest, hasSubscriber) {
   auto bus = TraceBus<int>::create("bus", 10);
   ASSERT_FALSE(bus->hasSubscription());

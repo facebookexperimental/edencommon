@@ -285,6 +285,12 @@ class TraceBus : public std::enable_shared_from_this<TraceBus<TraceEvent>> {
     std::vector<TraceEvent> writeBuffer;
     // Incremented every publish()
     uint64_t sequenceNumber = 1;
+    // Subscriptions that have unsubscribed and that threadLoop has not deleted
+    // yet. Deleting a subscription destroys its subscriber, which is how a
+    // subscriber that owns a resource, such as a Thrift stream publisher,
+    // releases it, so threadLoop must run for them even when no event is
+    // published.
+    size_t pendingUnsubscriptions = 0;
   };
 
   const std::string name_;
@@ -292,7 +298,8 @@ class TraceBus : public std::enable_shared_from_this<TraceBus<TraceEvent>> {
 
   folly::Synchronized<State, std::mutex> state_;
   std::atomic_bool hasSubscription_{false};
-  // Encodes the condition done || !writeBuffer.empty()
+  // Encodes the condition
+  // done || !writeBuffer.empty() || pendingUnsubscriptions != 0
   std::condition_variable emptyCV_;
   // Encodes the condition writeBuffer.size() < bufferCapacity_
   std::condition_variable fullCV_;

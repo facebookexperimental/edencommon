@@ -115,12 +115,21 @@ template <typename TraceEvent>
 void TraceBus<TraceEvent>::unsubscribe(void* subscription) noexcept {
   auto* sub = static_cast<Subscription*>(subscription);
 
-  auto state = state_.lock();
-  // Signal to threadLoop that `sub` should be deleted.
-  sub->unsubscribe = state->sequenceNumber;
+  {
+    auto state = state_.lock();
+    // Count the subscription once, so that a repeated unsubscribe cannot
+    // leave the thread loop waiting for a deletion that has already run.
+    if (sub->unsubscribe != 0) {
+      return;
+    }
+    // Signal to threadLoop that `sub` should be deleted.
+    sub->unsubscribe = state->sequenceNumber;
+    state->pendingUnsubscriptions++;
 
-  // At this point, the memory referenced by `sub` must not be accessed as it
-  // may be deleted at any moment.
+    // At this point, the memory referenced by `sub` must not be accessed as it
+    // may be deleted at any moment.
+  }
+  emptyCV_.notify_one();
 }
 
 template <typename TraceEvent>
@@ -157,12 +166,14 @@ void TraceBus<TraceEvent>::threadLoop(
     XCHECK(readBuffer.empty())
         << "Avoid waiting while holding references to things";
 
-    Subscription* head;
+    // Unlink the subscriptions that are due for deletion while the lock is
+    // held, chained through their next pointers so that no allocation is
+    // needed, and delete them before waiting but after releasing the lock: a
+    // subscriber's destructor may publish to this bus or take a lock that a
+    // publisher holds while it waits for this thread.
+    Subscription* unlinked = nullptr;
     {
       auto state = state_.lock();
-
-      // Deallocate before we wait.
-      // While the lock is held, delete all unsubscribed subscriptions.
       // plink is pointer to current node pointer.
       // nlink is pointer to next node pointer.
       // p is pointer to current node.
@@ -175,7 +186,9 @@ void TraceBus<TraceEvent>::threadLoop(
           // Here, we know this subscription has seen events up to (and possibly
           // beyond) its unsubscription request, so unlink it.
           *plink = *nlink;
-          delete p;
+          p->next = unlinked;
+          unlinked = p;
+          state->pendingUnsubscriptions--;
         } else {
           // Otherwise, if the subscription has requested unsubscription, then
           // it needs to make one more iteration through the loop and will be
@@ -184,6 +197,16 @@ void TraceBus<TraceEvent>::threadLoop(
         }
         p = next;
       }
+    }
+    while (unlinked) {
+      Subscription* next = unlinked->next;
+      delete unlinked;
+      unlinked = next;
+    }
+
+    Subscription* head;
+    {
+      auto state = state_.lock();
 
       // TODO: If it were safe to access Subscription::unsubscribe when the lock
       // weren't held, it would be possible to check the unsubscribe sequence
@@ -197,10 +220,12 @@ void TraceBus<TraceEvent>::threadLoop(
         hasSubscription_.store(false, std::memory_order_release);
       }
 
-      // If no events are buffered, sleep until events are delivered or we are
-      // signaled to terminate.
+      // If no events are buffered, sleep until events are delivered, a
+      // subscription is waiting to be deleted, or we are signaled to
+      // terminate.
       emptyCV_.wait(state.as_lock(), [&] {
-        return state->done || !state->writeBuffer.empty();
+        return state->done || !state->writeBuffer.empty() ||
+            state->pendingUnsubscriptions != 0;
       });
       std::swap(state->writeBuffer, readBuffer);
       done = state->done;
@@ -214,7 +239,11 @@ void TraceBus<TraceEvent>::threadLoop(
       fullCV_.notify_all();
     }
 
-    for (auto* sub = head; sub; sub = sub->next) {
+    // A wake-up for a pending unsubscription carries no events. Deliver
+    // nothing and loop back so the deletion pass above runs again once the
+    // unsubscribed subscription has observed everything up to its request.
+    for (auto* sub = readBuffer.empty() ? nullptr : head; sub;
+         sub = sub->next) {
       if (sub->hasThrownException) {
         continue;
       }
