@@ -7,6 +7,7 @@
 
 #include "eden/common/testharness/TempFile.h"
 
+#include <folly/io/FsUtil.h>
 #include <folly/portability/Unistd.h>
 
 #include "eden/common/utils/SystemError.h"
@@ -16,7 +17,7 @@ using folly::test::TemporaryDirectory;
 using folly::test::TemporaryFile;
 
 namespace {
-boost::filesystem::path computeTempDir() {
+folly::fs::path computeTempDir() {
   const char* envVar = nullptr;
   if ((envVar = std::getenv("TMPDIR")) || (envVar = std::getenv("TMP")) ||
       (envVar = std::getenv("TEMP")) || (envVar = std::getenv("TEMPDIR"))) {
@@ -24,20 +25,20 @@ boost::filesystem::path computeTempDir() {
     // We canonicalize it because `/var/tmp` on macOS is a symlink and
     // some of our tests compare the results of canonicalizing things
     // that are relative to it.
-    return boost::filesystem::canonical(boost::filesystem::path(envVar));
+    return folly::fs::canonical(folly::fs::path(envVar));
   }
 
   // Try the following locations in order:
   for (const auto& path : {"/dev/shm", "/tmp"}) {
     if (access(path, W_OK) == 0) {
-      return boost::filesystem::path(path);
+      return folly::fs::path(path);
     }
   }
 
   throw std::runtime_error("unable to find a suitable temporary directory");
 }
 
-const boost::filesystem::path& getTempDir() {
+const folly::fs::path& getTempDir() {
   static const auto tempDir = computeTempDir();
   return tempDir;
 }
