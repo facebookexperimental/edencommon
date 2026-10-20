@@ -53,10 +53,10 @@ TEST(ProcessInfoCache, addFromMultipleThreads) {
     threads.emplace_back([&] { processInfoCache.add(getpid()); });
   }
 
-  auto results = processInfoCache.getAllProcessInfos();
   for (auto& thread : threads) {
     thread.join();
   }
+  auto results = processInfoCache.getAllProcessInfos();
   EXPECT_EQ(1, results.size());
 }
 
