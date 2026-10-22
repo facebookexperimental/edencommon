@@ -15,10 +15,9 @@
 #include <unordered_map>
 #include <vector>
 
-#include <gtest/gtest_prod.h>
-
 #include <folly/Synchronized.h>
 #include <folly/futures/Promise.h>
+#include <folly/portability/GTestProd.h>
 #include <folly/synchronization/LifoSem.h>
 
 #include "eden/common/utils/ProcessInfo.h"
@@ -76,8 +75,8 @@ class ProcessInfoHandle {
   ProcessInfo get() const;
 
  private:
-  FRIEND_TEST(ProcessInfoCache, faultinjector);
-  FRIEND_TEST(ProcessInfoCache, multipleLookups);
+  FOLLY_GTEST_FRIEND_TEST(ProcessInfoCache, faultinjector);
+  FOLLY_GTEST_FRIEND_TEST(ProcessInfoCache, multipleLookups);
 
   const folly::SemiFuture<ProcessInfo>& future() const;
 

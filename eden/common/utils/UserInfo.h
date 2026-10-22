@@ -8,7 +8,7 @@
 #pragma once
 #include <folly/portability/SysTypes.h>
 #ifndef _WIN32
-#include <gtest/gtest_prod.h>
+#include <folly/portability/GTestProd.h>
 #include <pwd.h>
 #endif
 
@@ -91,7 +91,7 @@ class UserInfo {
 
  private:
 #ifndef _WIN32
-  FRIEND_TEST(UserInfo, initFromSudo);
+  FOLLY_GTEST_FRIEND_TEST(UserInfo, initFromSudo);
 #endif
 
   UserInfo() {}
