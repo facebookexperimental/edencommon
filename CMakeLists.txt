@@ -59,6 +59,8 @@ include_directories(${GFLAGS_INCLUDE_DIR})
 find_package(folly CONFIG REQUIRED)
 include_directories(${FOLLY_INCLUDE_DIR})
 
+find_package(Boost 1.69.0 REQUIRED COMPONENTS filesystem)
+
 find_package(fb303 CONFIG REQUIRED)
 include_directories(${FB303_INCLUDE_DIR})
 

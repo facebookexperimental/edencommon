@@ -5,6 +5,9 @@
 
 @PACKAGE_INIT@
 
+include(CMakeFindDependencyMacro)
+find_dependency(Boost 1.69.0 COMPONENTS filesystem)
+
 # We will generate this one cmake file that has all our targets in it. This is
 # how dependent projects find our targets.
 set_and_check(EDENCOMMON_CMAKE_DIR "@PACKAGE_CMAKE_INSTALL_DIR@")

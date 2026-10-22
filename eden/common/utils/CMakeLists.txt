@@ -39,6 +39,7 @@ target_link_libraries(
   PUBLIC
     Folly::folly
     glog::glog
+    Boost::filesystem
 )
 
 if (WIN32)
