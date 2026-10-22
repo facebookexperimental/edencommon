@@ -56,28 +56,50 @@ include_directories(${GLOG_INCLUDE_DIR})
 find_package(Gflags REQUIRED)
 include_directories(${GFLAGS_INCLUDE_DIR})
 
-find_package(folly CONFIG REQUIRED)
+# If folly is being built from source (FetchContent), skip find_package
+if (NOT DEFINED folly_SOURCE_DIR)
+  find_package(folly CONFIG REQUIRED)
+endif()
 include_directories(${FOLLY_INCLUDE_DIR})
 
 find_package(Boost 1.69.0 REQUIRED COMPONENTS filesystem)
 
-find_package(fb303 CONFIG REQUIRED)
+# If fb303 is being built from source (FetchContent), skip find_package
+if (NOT DEFINED fb303_SOURCE_DIR)
+  find_package(fb303 CONFIG REQUIRED)
+endif()
 include_directories(${FB303_INCLUDE_DIR})
 
-find_package(wangle CONFIG REQUIRED)
+# If wangle/fbthrift are being built from source (FetchContent), skip
+# find_package
+if (NOT DEFINED wangle_SOURCE_DIR)
+  find_package(wangle CONFIG REQUIRED)
+endif()
 include_directories(${WANGLE_INCLUDE_DIR})
 
-find_package(FBThrift CONFIG REQUIRED COMPONENTS cpp2 py)
+if (NOT DEFINED fbthrift_SOURCE_DIR)
+  find_package(FBThrift CONFIG REQUIRED COMPONENTS cpp2 py)
+endif()
 include_directories(${FBTHRIFT_INCLUDE_DIR})
 
-find_package(GMock MODULE REQUIRED)
-include_directories(${GMOCK_INCLUDEDIR} ${LIBGMOCK_INCLUDE_DIR})
-include(GoogleTest)
-enable_testing()
+# Projects that use edencommon link the test harness into their own tests, so
+# build it whenever GMock is available, even without edencommon's tests.
+if (BUILD_TESTS)
+  find_package(GMock MODULE REQUIRED)
+  include(GoogleTest)
+  enable_testing()
+else()
+  find_package(GMock MODULE QUIET)
+endif()
+if (LIBGMOCK_FOUND)
+  include_directories(${GMOCK_INCLUDEDIR} ${LIBGMOCK_INCLUDE_DIR})
+endif()
 
 add_subdirectory(eden/common/os)
 add_subdirectory(eden/common/telemetry)
-add_subdirectory(eden/common/testharness)
+if (LIBGMOCK_FOUND)
+  add_subdirectory(eden/common/testharness)
+endif()
 add_subdirectory(eden/common/utils)
 
 configure_file(

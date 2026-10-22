@@ -10,6 +10,7 @@ add_library(
   edencommon_telemetry
   ${telemetry_headers}
   ${telemetry_sources})
+add_library(edencommon::edencommon_telemetry ALIAS edencommon_telemetry)
 
 target_link_libraries(
   edencommon_telemetry
@@ -23,7 +24,7 @@ target_link_libraries(
 target_include_directories(
   edencommon_telemetry
   PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>
 )
 

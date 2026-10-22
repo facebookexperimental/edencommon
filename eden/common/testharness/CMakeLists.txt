@@ -11,6 +11,7 @@ add_library(
   ${testharness_headers}
   ${testharness_sources}
 )
+add_library(edencommon::edencommon_testharness ALIAS edencommon_testharness)
 
 target_link_libraries(
   edencommon_testharness
@@ -27,7 +28,7 @@ target_include_directories(
   SYSTEM
   PUBLIC
     ${LIBGMOCK_INCLUDE_DIR}
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>
 )
 

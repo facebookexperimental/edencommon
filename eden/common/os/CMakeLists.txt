@@ -10,6 +10,7 @@ add_library(edencommon_os
   ${os_headers}
   ${os_sources}
 )
+add_library(edencommon::edencommon_os ALIAS edencommon_os)
 
 set(os_libs
   fmt::fmt
@@ -26,7 +27,7 @@ target_link_libraries(edencommon_os
 )
 
 target_include_directories(edencommon_os PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
   $<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>
 )
 
@@ -42,4 +43,6 @@ install(
   DESTINATION ${INCLUDE_INSTALL_DIR}/eden/common/os
 )
 
-add_subdirectory(test)
+if (BUILD_TESTS)
+  add_subdirectory(test)
+endif()

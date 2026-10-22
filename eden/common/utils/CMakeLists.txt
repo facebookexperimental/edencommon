@@ -33,6 +33,7 @@ add_library(
     ${utils_sources}
     ${windows_headers}
     ${windows_sources})
+add_library(edencommon::edencommon_utils ALIAS edencommon_utils)
 
 target_link_libraries(
   edencommon_utils
@@ -55,7 +56,7 @@ endif()
 target_include_directories(
   edencommon_utils
   PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>
 )
 
@@ -75,4 +76,6 @@ install(
   DESTINATION ${INCLUDE_INSTALL_DIR}/eden/common/utils/windows
 )
 
-add_subdirectory(test)
+if (BUILD_TESTS)
+  add_subdirectory(test)
+endif()
