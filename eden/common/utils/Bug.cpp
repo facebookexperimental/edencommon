@@ -8,11 +8,14 @@
 #include "eden/common/utils/Bug.h"
 
 #include <folly/ExceptionWrapper.h>
+#include <folly/Portability.h>
 #include <folly/logging/xlog.h>
 
 namespace {
 static std::atomic<int> edenBugDisabledCount{0};
-}
+static std::atomic<bool> edenBugFatal{folly::kIsDebug};
+static std::atomic<uint64_t> edenBugCount{0};
+} // namespace
 
 namespace facebook::eden {
 EdenBug::EdenBug(const char* file, int lineNumber)
@@ -41,15 +44,23 @@ void EdenBug::throwException() {
 
 void EdenBug::logError() {
   XLOGF(CRITICAL, "EDEN_BUG at {}:{}: {}", file_, lineNumber_, message_);
+  edenBugCount.fetch_add(1, std::memory_order_relaxed);
 
-#ifndef NDEBUG
-  // Crash in debug builds.
-  // However, allow test code to disable crashing so that we can exercise
-  // EDEN_BUG() code paths in tests.
-  if (edenBugDisabledCount.load() == 0) {
+  if (edenBugFatal.load() && edenBugDisabledCount.load() == 0) {
     XLOG(FATAL, "crashing due to EDEN_BUG");
   }
-#endif
+}
+
+void setEdenBugFatal(bool fatal) {
+  edenBugFatal.store(fatal);
+}
+
+bool isEdenBugFatal() {
+  return edenBugFatal.load();
+}
+
+uint64_t getEdenBugCount() {
+  return edenBugCount.load(std::memory_order_relaxed);
 }
 
 EdenBugDisabler::EdenBugDisabler() {

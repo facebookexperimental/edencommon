@@ -9,20 +9,19 @@
 
 #include <fmt/core.h>
 #include <folly/CppAttributes.h>
+#include <folly/Likely.h>
 #include <folly/futures/Future.h>
 #include <atomic>
+#include <cstdint>
 #include <string>
+#include <tuple>
 
 /**
  * EDEN_BUG() should be used to log logic errors that should not happen unless
  * there is a bug in the code.
  *
- * In debug builds this macro will cause the program to crash.
- * However, in production builds crashing the program is fairly harsh, as this
- * will destroy the client mount points, causing problems for any open programs
- * or shells the user had that were using eden mounts.  Therefore in production
- * builds EDEN_BUG() just logs the error and then throws an exception that can
- * be handled by the calling code.
+ * By default this macro crashes in debug builds and logs then throws in
+ * production builds. setEdenBugFatal() can override that behavior at runtime.
  *
  * Use XLOG(FATAL) if you want to crash the program even in production builds.
  */
@@ -34,8 +33,8 @@
  * EDEN_BUG_FUTURE() is similar to EDEN_BUG() but should be used in context
  * where a Future should be returned.
  *
- * In debug builds this will crash, but in production builds this will return a
- * folly::Future<Type> containing an exception.
+ * When EDEN_BUG reports are fatal (see setEdenBugFatal()) this will crash;
+ * otherwise this will return a folly::Future<Type> containing an exception.
  */
 #define EDEN_BUG_FUTURE(Type)            \
   ::facebook::eden::EdenBugTry<Type>() & \
@@ -47,6 +46,28 @@
 #define EDEN_BUG_EXCEPTION()             \
   ::facebook::eden::EdenBugException() & \
       ::facebook::eden::EdenBug(__FILE__, __LINE__)
+
+/**
+ * Report an internal inconsistency without unwinding.
+ *
+ * The report still aborts when setEdenBugFatal(true) is in effect.
+ */
+#define EDEN_BUG_NONFATAL()             \
+  ::facebook::eden::EdenBugNonFatal() & \
+      ::facebook::eden::EdenBug(__FILE__, __LINE__)
+
+/**
+ * Report a failed expectation without throwing, unless fatal mode aborts.
+ *
+ * The switch guard keeps `if (x) EDEN_EXPECT(c);` free of -Wdangling-else.
+ */
+#define EDEN_EXPECT(cond)                        \
+  switch (0)                                     \
+  case 0:                                        \
+  default:                                       \
+    if (FOLLY_LIKELY(static_cast<bool>(cond))) { \
+    } else                                       \
+      EDEN_BUG_NONFATAL() << "expectation failed: " #cond " "
 
 namespace folly {
 class exception_wrapper;
@@ -61,7 +82,8 @@ namespace facebook::eden {
  * If toException() has not been called, it will throw an exception when it is
  * destroyed.
  *
- * In debug builds EdenBug causes the program to abort rather than throwing or
+ * When EDEN_BUG reports are fatal (the default in debug builds; see
+ * setEdenBugFatal()), EdenBug aborts the program rather than throwing or
  * returning an exception.
  */
 class EdenBug {
@@ -100,7 +122,8 @@ class EdenBug {
   [[noreturn]] void throwException();
 
   /**
-   * Prevent EDEN_BUG() from crashing the program, even in debug builds.
+   * Prevent EDEN_BUG() from crashing the program, even when EDEN_BUG reports
+   * are fatal.
    *
    * This is intended to allow unit tests to disable crashing.
    * This generally shouldn't ever be called from normal production code.
@@ -142,6 +165,26 @@ class EdenBugException {
     return bug.toException();
   }
 };
+
+/** Converts an EdenBug report without propagating its exception. */
+class EdenBugNonFatal {
+ public:
+  void operator&(EdenBug&& bug) const {
+    std::ignore = bug.toException();
+  }
+};
+
+/**
+ * Control whether EDEN_BUG reports abort the process.
+ *
+ * The default is folly::kIsDebug, preserving the historical build-mode
+ * behavior. EdenBugDisabler suppresses aborts regardless of this setting.
+ */
+void setEdenBugFatal(bool fatal);
+bool isEdenBugFatal();
+
+/** Return the process-wide number of EDEN_BUG reports. */
+uint64_t getEdenBugCount();
 
 /**
  * EdenBugDisabler temporarily disables crashing on EDEN_BUG as long as it
