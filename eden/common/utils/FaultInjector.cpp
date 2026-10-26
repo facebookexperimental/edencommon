@@ -81,6 +81,17 @@ ImmediateFuture<Unit> FaultInjector::checkAsyncImpl(
             XLOGF(DBG1, "error fault hit: {}, {}", keyClass, keyValue);
             return RV{std::move(error)};
           },
+          [&](const FaultInjector::Unblock& unblock) -> RV {
+            XLOGF(
+                DBG1,
+                "unblock fault hit: {}, {} -> {}, {}",
+                keyClass,
+                keyValue,
+                unblock.keyClass,
+                unblock.keyValueRegex);
+            this->unblock(unblock.keyClass, unblock.keyValueRegex);
+            return folly::unit;
+          },
           [&](const FaultInjector::Kill&) -> RV {
             XLOGF(DBG1, "kill fault hit: {}, {}", keyClass, keyValue);
             std::_Exit(EXIT_FAILURE);
@@ -118,6 +129,16 @@ folly::coro::now_task<Unit> FaultInjector::co_checkAsyncImpl(
   } else if (auto* error = std::get_if<folly::exception_wrapper>(&behavior)) {
     XLOGF(DBG1, "error fault hit: {}, {}", keyClass, keyValue);
     error->throw_exception();
+  } else if (auto* unblock = std::get_if<FaultInjector::Unblock>(&behavior)) {
+    XLOGF(
+        DBG1,
+        "unblock fault hit: {}, {} -> {}, {}",
+        keyClass,
+        keyValue,
+        unblock->keyClass,
+        unblock->keyValueRegex);
+    this->unblock(unblock->keyClass, unblock->keyValueRegex);
+    co_return folly::unit;
   } else if (std::holds_alternative<FaultInjector::Kill>(behavior)) {
     XLOGF(DBG1, "kill fault hit: {}, {}", keyClass, keyValue);
     std::_Exit(EXIT_FAILURE);
@@ -208,6 +229,34 @@ void FaultInjector::injectDelayedError(
       count);
   injectFault(
       keyClass, keyValueRegex, Delay{duration, std::move(error)}, count);
+}
+
+void FaultInjector::injectUnblock(
+    std::string_view keyClass,
+    std::string_view keyValueRegex,
+    std::string_view blockedKeyClass,
+    std::string_view blockedKeyValueRegex,
+    size_t count) {
+  XLOGF(
+      INFO,
+      "injectUnblock({}, {}, blockedKeyClass={}, "
+      "blockedKeyValueRegex={}, count={})",
+      keyClass,
+      keyValueRegex,
+      blockedKeyClass,
+      blockedKeyValueRegex,
+      count);
+  // Compile the target pattern now so an invalid one fails this call rather
+  // than the unrelated request that later fires the fault. It uses the same
+  // engine as extractBlockedChecks so both accept the same patterns.
+  // @lint-ignore CLANGTIDY facebook-hte-BoostRegexRisky
+  [[maybe_unused]] const boost::regex blockedRegex(
+      blockedKeyValueRegex.begin(), blockedKeyValueRegex.end());
+  injectFault(
+      keyClass,
+      keyValueRegex,
+      Unblock{std::string{blockedKeyClass}, std::string{blockedKeyValueRegex}},
+      count);
 }
 
 void FaultInjector::injectNoop(

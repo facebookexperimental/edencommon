@@ -232,6 +232,24 @@ class FaultInjector {
       size_t count = 0);
 
   /**
+   * Inject a fault that releases matching blocked checks when triggered.
+   *
+   * This allows a checkpoint to drive a preconfigured ordering after the
+   * external Thrift control path that injected the faults is unavailable.
+   *
+   * The unblock releases only checks that are already blocked when it fires.
+   * If it fires before its target has blocked, it releases nothing and still
+   * uses up one of its count hits, so callers should wait for the target with
+   * waitUntilBlocked() before relying on it.
+   */
+  void injectUnblock(
+      std::string_view keyClass,
+      std::string_view keyValueRegex,
+      std::string_view blockedKeyClass,
+      std::string_view blockedKeyValueRegex,
+      size_t count = 0);
+
+  /**
    * Inject a fault that causes the process to exit without cleanup.
    */
   void injectKill(
@@ -329,6 +347,10 @@ class FaultInjector {
     std::chrono::milliseconds duration;
     std::optional<folly::exception_wrapper> error;
   };
+  struct Unblock {
+    std::string keyClass;
+    std::string keyValueRegex;
+  };
   struct Kill {};
   using FaultBehavior = std::variant<
       folly::Unit, // no fault
@@ -336,6 +358,7 @@ class FaultInjector {
       BlockWithCancel, // block and poll for cancellation
       Delay, // delay for a specified amount of time
       folly::exception_wrapper, // throw an exception
+      Unblock, // release matching blocked checks
       Kill // exit the process ungracefully
       >;
   struct Fault {

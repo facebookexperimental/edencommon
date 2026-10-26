@@ -111,6 +111,40 @@ TEST(FaultInjector, blocking) {
   EXPECT_THROW_RE(std::move(future2).get(), std::domain_error, "test");
 }
 
+TEST(FaultInjector, checkpointTriggeredUnblock) {
+  FaultInjector fi(true);
+  fi.injectBlock("request", ".*");
+
+  auto first = fi.checkAsync("request", "first");
+  auto second = fi.checkAsync("request", "second");
+  ASSERT_FALSE(first.isReady());
+  ASSERT_FALSE(second.isReady());
+
+  fi.injectUnblock("shutdown_phase", "release_first", "request", "first", 1);
+  fi.check("shutdown_phase", "not_selected");
+  EXPECT_FALSE(first.isReady());
+  EXPECT_FALSE(second.isReady());
+
+  fi.check("shutdown_phase", "release_first");
+  ASSERT_NE(first.isReady(), detail::kImmediateFutureAlwaysDefer);
+  EXPECT_FALSE(second.isReady());
+  std::move(first).get();
+
+  fi.check("shutdown_phase", "release_first");
+  EXPECT_FALSE(second.isReady());
+  EXPECT_EQ(1, fi.unblock("request", "second"));
+  ASSERT_NE(second.isReady(), detail::kImmediateFutureAlwaysDefer);
+  std::move(second).get();
+}
+
+TEST(FaultInjector, unblockRejectsAnInvalidTargetRegexAtInjection) {
+  FaultInjector fi(true);
+  EXPECT_THROW(
+      fi.injectUnblock("shutdown_phase", ".*", "request", "("),
+      boost::regex_error);
+  fi.check("shutdown_phase", "any");
+}
+
 TEST(FaultInjector, delay) {
   FaultInjector fi(true);
   fi.injectDelay("mount", ".*", 20ms);
