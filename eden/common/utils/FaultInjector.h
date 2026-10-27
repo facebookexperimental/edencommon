@@ -61,6 +61,18 @@ class FaultInjector {
   ~FaultInjector();
 
   /**
+   * Returns the `enabled` flag passed to the constructor.
+   *
+   * Hot paths can test this to skip a checkpoint entirely when fault injection
+   * is disabled: co_checkAsync() otherwise allocates a coroutine frame on every
+   * call, and under kImmediateFutureAlwaysDefer checkAsync() returns a future
+   * that is not ready, which defers any continuation chained on it.
+   */
+  bool isEnabled() const {
+    return enabled_;
+  }
+
+  /**
    * Check for an injected fault with the specified key.
    *
    * If fault injection is disabled or if there is no matching fault for this
