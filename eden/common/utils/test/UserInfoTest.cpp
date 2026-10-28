@@ -11,7 +11,7 @@
 #include <folly/portability/Stdlib.h>
 #include <folly/test/TestUtils.h>
 
-#include "eden/common/utils/test/ScopedEnvVar.h"
+#include "eden/common/testharness/ScopedEnvVar.h"
 
 namespace facebook::eden {
 

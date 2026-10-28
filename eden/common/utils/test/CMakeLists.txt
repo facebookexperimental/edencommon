@@ -16,7 +16,6 @@ add_executable(
     ProcessInfoCacheTest.cpp
     ProcessInfoTest.cpp
     RefPtrTest.cpp
-    ScopedEnvVar.cpp
     SpawnedProcessTest.cpp
     StringConvTest.cpp
     StringTest.cpp

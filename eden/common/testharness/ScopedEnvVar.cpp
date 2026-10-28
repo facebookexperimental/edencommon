@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "eden/common/utils/test/ScopedEnvVar.h"
+#include "eden/common/testharness/ScopedEnvVar.h"
 
 #include <folly/Exception.h>
 #include <folly/portability/Stdlib.h>
