@@ -82,6 +82,11 @@ if (NOT DEFINED fbthrift_SOURCE_DIR)
 endif()
 include_directories(${FBTHRIFT_INCLUDE_DIR})
 
+# A parent project's BUILD_TESTS is for its own tests.
+if (NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  set(BUILD_TESTS OFF)
+endif()
+
 # Projects that use edencommon link the test harness into their own tests, so
 # build it whenever GMock is available, even without edencommon's tests.
 if (BUILD_TESTS)
