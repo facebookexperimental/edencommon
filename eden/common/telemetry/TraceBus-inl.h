@@ -163,8 +163,13 @@ void TraceBus<TraceEvent>::threadLoop(
   bool done = false;
   uint64_t lastObservedSequenceNumber = 0;
   while (!done) {
-    XCHECK(readBuffer.empty())
-        << "Avoid waiting while holding references to things";
+    // Not XCHECK, which looks up the log level even when the check passes. The
+    // first lookup in a process creates folly's LoggerDB, which registers an
+    // atexit handler, and on Windows that blocks while exit() destroys a static
+    // TraceBus, whose destructor joins this thread.
+    if (!readBuffer.empty()) {
+      XLOG(FATAL) << "Avoid waiting while holding references to things";
+    }
 
     // Unlink the subscriptions that are due for deletion while the lock is
     // held, chained through their next pointers so that no allocation is
