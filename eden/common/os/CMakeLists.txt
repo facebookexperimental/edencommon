@@ -14,13 +14,8 @@ add_library(edencommon::edencommon_os ALIAS edencommon_os)
 
 set(os_libs
   fmt::fmt
+  Folly::folly
 )
-
-if (NOT WIN32)
-  list(APPEND os_libs
-    Folly::folly
-  )
-endif()
 
 target_link_libraries(edencommon_os
   ${os_libs}
