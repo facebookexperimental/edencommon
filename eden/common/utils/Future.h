@@ -30,7 +30,7 @@ namespace facebook::eden {
  * Using collectSafe makes the above example legal.
  */
 template <typename... Fs>
-folly::Future<std::tuple<typename folly::remove_cvref_t<Fs>::value_type...>>
+folly::Future<std::tuple<typename std::remove_cvref_t<Fs>::value_type...>>
 collectSafe(Fs&&... fs) {
   using namespace folly;
 

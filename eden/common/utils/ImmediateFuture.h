@@ -421,7 +421,7 @@ ImmediateFuture<std::vector<T>> collectAllSafe(
  */
 template <typename... Fs>
 ImmediateFuture<
-    std::tuple<folly::Try<typename folly::remove_cvref_t<Fs>::value_type>...>>
+    std::tuple<folly::Try<typename std::remove_cvref_t<Fs>::value_type>...>>
 collectAll(Fs&&... fs);
 
 /**
@@ -435,8 +435,8 @@ collectAll(Fs&&... fs);
  * or precomputed errors.
  */
 template <typename... Fs>
-ImmediateFuture<std::tuple<std::optional<
-    folly::Try<typename folly::remove_cvref_t<Fs>::value_type>>...>>
+ImmediateFuture<std::tuple<
+    std::optional<folly::Try<typename std::remove_cvref_t<Fs>::value_type>>...>>
 collectAllValid(Fs&&... fs);
 
 /**
@@ -450,7 +450,7 @@ collectAllValid(Fs&&... fs);
  * when all the passed in ImmediateFuture have completed.
  */
 template <typename... Fs>
-ImmediateFuture<std::tuple<typename folly::remove_cvref_t<Fs>::value_type...>>
+ImmediateFuture<std::tuple<typename std::remove_cvref_t<Fs>::value_type...>>
 collectAllSafe(Fs&&... fs);
 
 } // namespace facebook::eden

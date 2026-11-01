@@ -391,10 +391,10 @@ ImmediateFuture<std::vector<T>> collectAllSafe(
 
 template <typename... Fs>
 ImmediateFuture<
-    std::tuple<folly::Try<typename folly::remove_cvref_t<Fs>::value_type>...>>
+    std::tuple<folly::Try<typename std::remove_cvref_t<Fs>::value_type>...>>
 collectAll(Fs&&... fs) {
   using Result =
-      std::tuple<folly::Try<typename folly::remove_cvref_t<Fs>::value_type>...>;
+      std::tuple<folly::Try<typename std::remove_cvref_t<Fs>::value_type>...>;
   struct Context {
     ~Context() {
       p.setValue(std::move(results));
@@ -436,11 +436,11 @@ collectAll(Fs&&... fs) {
 }
 
 template <typename... Fs>
-ImmediateFuture<std::tuple<std::optional<
-    folly::Try<typename folly::remove_cvref_t<Fs>::value_type>>...>>
+ImmediateFuture<std::tuple<
+    std::optional<folly::Try<typename std::remove_cvref_t<Fs>::value_type>>...>>
 collectAllValid(Fs&&... fs) {
   using Result = std::tuple<std::optional<
-      folly::Try<typename folly::remove_cvref_t<Fs>::value_type>>...>;
+      folly::Try<typename std::remove_cvref_t<Fs>::value_type>>...>;
   struct Context {
     ~Context() {
       p.setValue(std::move(results));
@@ -486,12 +486,12 @@ collectAllValid(Fs&&... fs) {
 }
 
 template <typename... Fs>
-ImmediateFuture<std::tuple<typename folly::remove_cvref_t<Fs>::value_type...>>
+ImmediateFuture<std::tuple<typename std::remove_cvref_t<Fs>::value_type...>>
 collectAllSafe(Fs&&... fs) {
   return facebook::eden::collectAll(static_cast<Fs&&>(fs)...)
       .thenValue(
           [](std::tuple<
-              folly::Try<typename folly::remove_cvref_t<Fs>::value_type>...>&&
+              folly::Try<typename std::remove_cvref_t<Fs>::value_type>...>&&
                  res) { return unwrapTryTuple(std::move(res)); });
 }
 
