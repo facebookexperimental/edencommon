@@ -7,6 +7,7 @@ add_executable(
   utils_test
     FileDescriptorTest.cpp
     FileUtilsTest.cpp
+    GlobPathTest.cpp
     OptionSetTest.cpp
     ImmediateFutureTest.cpp
     IoFutureTest.cpp
@@ -30,6 +31,7 @@ target_link_libraries(
   PUBLIC
     edencommon_utils
     edencommon_testharness
+    FBThrift::thriftcpp2
     Folly::folly
     Folly::folly_test_util
     ${LIBGMOCK_LIBRARIES}
