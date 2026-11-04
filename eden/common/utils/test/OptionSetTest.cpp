@@ -46,6 +46,11 @@ TEST(OptionSet, default_is_empty) {
   EXPECT_FALSE(set);
 }
 
+TEST(OptionSet, initializer_list) {
+  EXPECT_EQ(CM_RED | CM_BLUE, (ColorSet{CM_RED, CM_BLUE}));
+  EXPECT_EQ(CM_GREEN, (ColorSet{CM_GREEN}));
+}
+
 TEST(OptionSet, assignment_operators) {
   ColorSet set;
   set |= CM_RED;

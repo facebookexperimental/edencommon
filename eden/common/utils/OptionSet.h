@@ -42,7 +42,7 @@ class OptionSet {
 
   /* implicit */ constexpr OptionSet(std::initializer_list<Derived> args) {
     for (Derived v : args) {
-      value_ |= v;
+      value_ |= v.value_;
     }
   }
 
