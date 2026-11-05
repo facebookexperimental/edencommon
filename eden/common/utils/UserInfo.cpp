@@ -12,10 +12,6 @@
 #ifdef __linux__
 #include <sys/prctl.h>
 #endif // __linux__
-#ifdef EDEN_HAVE_SELINUX
-#include <folly/logging/xlog.h>
-#include <selinux/selinux.h> // @manual
-#endif // EDEN_HAVE_SELINUX
 #else // !_WIN32
 #include <Lmcons.h> // @manual
 #include <userenv.h> // @manual
@@ -34,29 +30,6 @@ using std::string;
 namespace facebook::eden {
 
 #ifndef _WIN32
-
-static void dropToBasicSELinuxPrivileges() {
-#ifdef EDEN_HAVE_SELINUX
-  const char* baseContext = "user_u:base_r:base_t";
-
-  XLOGF(DBG2, "Dropping SELinux context...{}", [&] {
-    char* con;
-    if (0 == getcon(&con)) {
-      SCOPE_SUCCESS {
-        freecon(con);
-      };
-      return " prior context was: " + string(con);
-    }
-    return string();
-  }());
-
-  // Drop to basic user SELinux privileges.
-  // This is required in order to gdb into edenfs without sudo.
-  if (setcon(const_cast<char*>(baseContext))) {
-    XLOG(DBG3, "setcon() failed when dropping SELinux context");
-  }
-#endif // EDEN_HAVE_SELINUX
-}
 
 void UserInfo::dropPrivileges() {
   // If we are not privileged, there is nothing to do.
@@ -89,8 +62,6 @@ void UserInfo::dropPrivileges() {
   // If we started under sudo, update the environment to restore $USER
   // and drop the $SUDO_* variables.
   restoreEnvironmentAfterSudo();
-
-  dropToBasicSELinuxPrivileges();
 }
 
 void UserInfo::restoreEnvironmentAfterSudo() {
