@@ -24,11 +24,14 @@ struct MountTableEntry {
   std::string mountSource;
   std::string fsType;
   std::string mountOptions;
+  // The namespace-local ID reported by /proc/*/mountinfo and fdinfo.
+  uint64_t mountId{};
 };
 
 struct MountInfoOptions {
   bool includeMountSource{false};
   bool includeMountOptions{false};
+  bool includeMountId{false};
 };
 
 /**

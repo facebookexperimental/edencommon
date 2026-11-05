@@ -16,7 +16,8 @@ namespace {
 
 constexpr MountInfoOptions kAllFields{
     .includeMountSource = true,
-    .includeMountOptions = true};
+    .includeMountOptions = true,
+    .includeMountId = true};
 
 TEST(ProcMountInfoTest, parsesDevicesAndOwnersForMultipleUsers) {
   auto result = parseProcMountInfo(
@@ -28,6 +29,7 @@ TEST(ProcMountInfoTest, parsesDevicesAndOwnersForMultipleUsers) {
   ASSERT_TRUE(result.hasValue());
   ASSERT_EQ(2, result->size());
   const auto& first = result->at(0);
+  EXPECT_EQ(101, first.mountId);
   EXPECT_EQ(0, first.devMajor);
   EXPECT_EQ(344, first.devMinor);
   EXPECT_EQ("/", first.mountRoot);
@@ -36,6 +38,7 @@ TEST(ProcMountInfoTest, parsesDevicesAndOwnersForMultipleUsers) {
   EXPECT_EQ("edenfs:", first.mountSource);
   EXPECT_EQ("rw,user_id=229400,group_id=100,allow_other", first.mountOptions);
   const auto& second = result->at(1);
+  EXPECT_EQ(102, second.mountId);
   EXPECT_EQ(101, second.devMinor);
   EXPECT_EQ("rw,user_id=215776,group_id=100,allow_other", second.mountOptions);
 }
@@ -54,12 +57,21 @@ TEST(ProcMountInfoTest, decodesEscapedPathsAndSource) {
 
   auto basic = parseProcMountInfo(contents, {});
   ASSERT_TRUE(basic.hasValue());
+  EXPECT_EQ(0, basic->at(0).mountId);
   EXPECT_TRUE(basic->at(0).mountSource.empty());
   EXPECT_TRUE(basic->at(0).mountOptions.empty());
 }
 
+TEST(ProcMountInfoTest, mountIdentityIsOptIn) {
+  constexpr auto contents = "x 1 0:344 / /checkout rw - fuse edenfs: rw";
+  EXPECT_TRUE(parseProcMountInfo(contents, {}).hasValue());
+  EXPECT_EQ(
+      EINVAL, parseProcMountInfo(contents, {.includeMountId = true}).error());
+}
+
 TEST(ProcMountInfoTest, rejectsIncompleteOrInvalidMountInfo) {
   for (const auto* contents : {
+           "x 1 0:344 / /checkout rw - fuse edenfs: rw",
            "101 1 0:344 / /checkout rw fuse edenfs: rw",
            "101 1 0:344 / /checkout - fuse edenfs: rw",
            "101 1 0:344 / /checkout rw - fuse edenfs:",

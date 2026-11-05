@@ -49,6 +49,13 @@ folly::Expected<std::vector<MountTableEntry>, int> parseProcMountInfo(
     }
 
     MountTableEntry info;
+    if (options.includeMountId) {
+      auto mountId = folly::tryTo<uint64_t>(fields[0]);
+      if (!mountId) {
+        return folly::makeUnexpected(EINVAL);
+      }
+      info.mountId = *mountId;
+    }
     info.devMajor = *devMajor;
     info.devMinor = *devMinor;
     info.fsType = fsType.str();
