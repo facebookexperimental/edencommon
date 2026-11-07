@@ -107,7 +107,7 @@ class Tracer {
     XCHECK(context != nullptr);
 
     const auto& token = tracingToken;
-    if (FOLLY_UNLIKELY(!context->hasContextData(token))) {
+    if (!context->hasContextData(token)) [[unlikely]] {
       auto reqData = std::make_unique<TraceRequestData>();
       context->setContextData(token, std::move(reqData));
     }
