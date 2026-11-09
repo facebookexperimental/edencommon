@@ -34,7 +34,7 @@ folly::Future<std::tuple<typename std::remove_cvref_t<Fs>::value_type...>>
 collectSafe(Fs&&... fs) {
   using namespace folly;
 
-  using Result = std::tuple<typename remove_cvref_t<Fs>::value_type...>;
+  using Result = std::tuple<typename std::remove_cvref_t<Fs>::value_type...>;
   struct Context {
     Promise<Result> p;
 
@@ -43,7 +43,7 @@ collectSafe(Fs&&... fs) {
 
     // It would be slightly more size-efficient to use std::optional here, but
     // folly::Try provides unwrapTryTuple.
-    std::tuple<Try<typename remove_cvref_t<Fs>::value_type>...> results;
+    std::tuple<Try<typename std::remove_cvref_t<Fs>::value_type>...> results;
 
     // count should match the ctx shared_ptr reference count, but managing
     // our own count avoids a std::terminate if an exception is thrown during
