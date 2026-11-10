@@ -430,7 +430,7 @@ ProcessInfoCache::makeReadProcessInfoFunc(ReadFuncConfig config) {
 /*static*/ std::string ProcessInfoCache::cleanProcessCommandline(
     std::string processName) {
   std::replace(processName.begin(), processName.end(), '\0', ' ');
-  return folly::rtrimWhitespace(processName).str();
+  return std::string(folly::rtrimWhitespace(processName));
 }
 
 } // namespace facebook::eden
