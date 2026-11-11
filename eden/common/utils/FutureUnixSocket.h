@@ -117,6 +117,14 @@ class FutureUnixSocket : private UnixSocket::ReceiveCallback {
   uid_t getRemoteUID();
 
   /**
+   * Returns the underlying file descriptor value.
+   * It must not be used for reading or writing.
+   */
+  int getRawFd() const {
+    return socket_->getRawFd();
+  }
+
+  /**
    * Send a message.
    *
    * Returns a Future that will complete when the message has been handed off
