@@ -7,7 +7,6 @@
 
 #include "eden/common/testharness/TempFile.h"
 
-#include <folly/io/FsUtil.h>
 #include <folly/portability/Unistd.h>
 
 #include "eden/common/utils/SystemError.h"
