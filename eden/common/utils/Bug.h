@@ -61,12 +61,12 @@
  *
  * The switch guard keeps `if (x) EDEN_EXPECT(c);` free of -Wdangling-else.
  */
-#define EDEN_EXPECT(cond)                        \
-  switch (0)                                     \
-  case 0:                                        \
-  default:                                       \
-    if (FOLLY_LIKELY(static_cast<bool>(cond))) { \
-    } else                                       \
+#define EDEN_EXPECT(cond)                     \
+  switch (0)                                  \
+  case 0:                                     \
+  default:                                    \
+    if (static_cast<bool>(cond)) [[likely]] { \
+    } else                                    \
       EDEN_BUG_NONFATAL() << "expectation failed: " #cond " "
 
 namespace folly {
