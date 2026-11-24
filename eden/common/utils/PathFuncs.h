@@ -1210,7 +1210,14 @@ class ComposedPathBase : public PathBase<Storage, SanityChecker, Stored, Piece>,
    * That is a non-stored reference to everything except the final
    * component of the path. */
   Piece dirname() const {
-    return Piece(facebook::eden::dirname(this->view()), SkipPathSanityCheck());
+    auto dir = facebook::eden::dirname(this->view());
+    // The parent of a top-level absolute path is the root, not the empty
+    // string, which is not a valid AbsolutePathPiece.
+    if (std::is_same_v<Piece, AbsolutePathPiece> &&
+        dir.size() < detail::kRootStr.size()) {
+      dir = this->view().substr(0, detail::kRootStr.size());
+    }
+    return Piece(dir, SkipPathSanityCheck());
   }
 
   /** Return an iterator range that will yield all components of this path.

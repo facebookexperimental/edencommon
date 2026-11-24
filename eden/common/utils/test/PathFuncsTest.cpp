@@ -732,6 +732,19 @@ TEST(PathFuncs, dirname) {
   EXPECT_EQ("", dirname("foo"));
 }
 
+TEST(PathFuncs, dirnameOfTopLevelAbsolutePathIsRoot) {
+  // Long enough to be heap allocated.
+  auto topLevel = kRootAbsPath + PathComponent{string(64, 'a')};
+  for (auto path : {topLevel.piece(), kRootAbsPath}) {
+    SCOPED_TRACE(path.view());
+    auto parent = path.dirname();
+    EXPECT_EQ(kRootAbsPath.view(), parent.view());
+    vector<PathComponentPiece> components(
+        parent.components().begin(), parent.components().end());
+    EXPECT_THAT(components, testing::IsEmpty());
+  }
+}
+
 TEST(PathFuncs, basename) {
   // Note: need explicit StringPiece type here to avoid the compiler picking
   // basename(3) based on type deduction from the const char * literal.
