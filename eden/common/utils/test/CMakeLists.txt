@@ -24,6 +24,7 @@ add_executable(
     UnixSocketTest.cpp
     UserInfoTest.cpp
     Utf8Test.cpp
+    XAttrTest.cpp
 )
 
 target_link_libraries(

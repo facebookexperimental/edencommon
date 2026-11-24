@@ -113,11 +113,14 @@ std::vector<std::string> listxattr(std::string_view path) {
 
     if (size != -1) {
       // Success; parse the result in a list of names separated by NUL
-      // bytes, terminated by a NUL byte.
+      // bytes, terminated by a NUL byte. ignoreEmpty drops the empty piece
+      // after the final terminator, and handles an empty list.
       std::vector<std::string> result;
-      // Don't include the final terminator in the size, as that just causes
-      // the split array to contain a final empty name.
-      folly::split('\0', std::string_view(buf.data(), size - 1), result);
+      folly::split(
+          '\0',
+          std::string_view(buf.data(), size),
+          result,
+          /*ignoreEmpty=*/true);
       return result;
     }
 
@@ -140,7 +143,10 @@ std::vector<std::string> listxattr(std::string_view path) {
       folly::throwSystemError("listxattr");
     }
 
-    buf.resize(size, 0);
+    // Never retry with an empty buffer: a zero-sized ::listxattr is itself a
+    // size query, so its return value would be taken for a list it never
+    // wrote.
+    buf.resize(size + 1, 0);
   }
 }
 
