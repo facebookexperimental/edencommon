@@ -6,6 +6,11 @@
  */
 
 #include "eden/common/utils/Utf8.h"
+
+#include <cstring>
+#include <memory>
+#include <string>
+
 #include <folly/portability/GTest.h>
 
 using namespace facebook::eden;
@@ -33,6 +38,31 @@ TEST(Utf8Test, isValidUtf8) {
   // overlong
   EXPECT_FALSE(isValidUtf8("\xF0\x82\x82\xAC"));
   EXPECT_FALSE(isValidUtf8("\xA0prefix\xB0"));
+}
+
+TEST(Utf8Test, isValidUtf8RejectsTruncatedSequenceAtEndOfRange) {
+  const folly::StringPiece kTruncated[] = {
+      "\xC2",
+      "\xE0\xA0",
+      "\xF0\x90\x80",
+  };
+  for (auto str : kTruncated) {
+    // Copy into an allocation of exactly the input's size, so that a read
+    // past the end of the range is not masked by a NUL terminator.
+    auto buffer = std::make_unique<char[]>(str.size());
+    std::memcpy(buffer.get(), str.data(), str.size());
+    EXPECT_FALSE(isValidUtf8(folly::StringPiece{buffer.get(), str.size()}))
+        << "truncated sequence of length " << str.size();
+  }
+}
+
+TEST(Utf8Test, isValidUtf8RejectsTruncatedSequenceBeforeContinuationByte) {
+  // The range ends in a truncated sequence, and the byte just past the range
+  // is a continuation byte.
+  std::string str(40, 'a');
+  str[38] = '\xC2';
+  str[39] = '\xA0';
+  EXPECT_FALSE(isValidUtf8(folly::StringPiece{str.data(), 39}));
 }
 
 TEST(Utf8String, ensureValidUtf8) {

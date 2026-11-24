@@ -43,7 +43,7 @@ constexpr bool isValidContinuation(
     const char* const end,
     size_t num,
     uint32_t& codepoint) {
-  if (begin + num - 1 > end) {
+  if (static_cast<size_t>(end - begin) < num) {
     return false;
   }
 
