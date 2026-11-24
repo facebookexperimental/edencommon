@@ -160,4 +160,40 @@ TEST(RefCounted, no_reference_bumping_when_as_on_singleton) {
   EXPECT_EQ('e', base_copy->get());
 }
 
+struct Base3Prefix {
+  virtual ~Base3Prefix() = default;
+  int dummy{0};
+};
+
+// RefCounted is not at the start of Base3.
+struct Base3 : Base3Prefix, RefCounted {
+  virtual char get() {
+    return 'b';
+  }
+};
+
+struct Derived3 : Base2, Base3 {
+  char get() override {
+    return 'f';
+  }
+};
+
+TEST(RefCounted, convert_to_base_with_offset_refcounted) {
+  auto derived = makeRefPtr<Derived3>();
+  Base3* expected = derived.get();
+  RefPtr<Base3> base = std::move(derived);
+  EXPECT_EQ(expected, base.get());
+  auto copy = base.copy();
+  base.reset();
+  EXPECT_EQ('f', copy->get());
+}
+
+TEST(RefCounted, convert_to_second_base_with_offset) {
+  auto derived = makeRefPtr<Derived2>();
+  Base* expected = derived.get();
+  RefPtr<Base> base = std::move(derived);
+  EXPECT_EQ(expected, base.get());
+  EXPECT_EQ('e', base->get());
+}
+
 } // namespace

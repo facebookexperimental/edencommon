@@ -235,11 +235,12 @@ class RefPtr : private RefPtrBase {
 
   explicit RefPtr(uintptr_t ptr) noexcept : RefPtrBase{ptr} {}
 
+  // The stored pointer is the address of the RefCounted subobject, which a
+  // derived-to-base conversion does not change.
   template <typename U>
   static uintptr_t convert_ptr(uintptr_t that) {
-    uint64_t owned = that & kOwnedBit;
-    T* t = reinterpret_cast<U*>(that & kPtrMask);
-    return reinterpret_cast<uintptr_t>(t) | owned;
+    static_assert(std::is_convertible_v<U*, T*>);
+    return that;
   }
 
   void incRef() const noexcept {
