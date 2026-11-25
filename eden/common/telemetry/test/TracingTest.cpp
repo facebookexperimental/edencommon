@@ -7,11 +7,17 @@
 
 #include <folly/portability/GTest.h>
 
+#include <atomic>
+#include <barrier>
 #include <cstdlib>
+#include <memory>
+#include <set>
 #include <thread>
+#include <vector>
 
 #include <folly/executors/ThreadedExecutor.h>
 #include <folly/futures/Future.h>
+#include <folly/io/async/Request.h>
 
 #include "eden/common/telemetry/Tracing.h"
 
@@ -114,6 +120,54 @@ TEST(Tracing, records_nested_block) {
   EXPECT_STREQ(points[1].name, "my_block2");
 }
 
+// Two threads that construct the first TraceBlock of a shared RequestContext
+// at the same time must not lose its trace data, and must agree on one trace
+// id. The race window is small, so the test repeats it with fresh contexts, in
+// batches that fit in each thread's trace point buffer.
+TEST(Tracing, first_blocks_on_two_threads_in_one_request_context) {
+  (void)getAllTracepoints();
+  enableTracing();
+  constexpr size_t kBatches = 12;
+  constexpr size_t kBatchSize = 4000;
+  for (size_t batch = 0; batch < kBatches; ++batch) {
+    std::vector<std::shared_ptr<folly::RequestContext>> contexts;
+    contexts.reserve(kBatchSize);
+    for (size_t i = 0; i < kBatchSize; ++i) {
+      contexts.push_back(std::make_shared<folly::RequestContext>());
+    }
+    std::atomic<size_t> started{0};
+    std::atomic<size_t> finished{0};
+    auto work = [&] {
+      for (size_t i = 0; i < kBatchSize; ++i) {
+        while (started.load(std::memory_order_acquire) <= i) {
+        }
+        {
+          folly::RequestContextScopeGuard guard{contexts[i]};
+          TraceBlock block{"racer"};
+        }
+        finished.fetch_add(1, std::memory_order_acq_rel);
+      }
+    };
+    std::thread a{work};
+    std::thread b{work};
+    for (size_t i = 0; i < kBatchSize; ++i) {
+      while (finished.load(std::memory_order_acquire) < 2 * i) {
+      }
+      started.store(i + 1, std::memory_order_release);
+    }
+    a.join();
+    b.join();
+
+    // Each context gets exactly one trace id, and ids are unique across
+    // contexts.
+    std::set<uint64_t> traceIds;
+    for (const auto& point : getAllTracepoints()) {
+      traceIds.insert(point.traceId);
+    }
+    ASSERT_EQ(kBatchSize, traceIds.size());
+  }
+}
+
 TEST(Tracing, records_traceId_across_futures) {
   enableTracing();
   TraceBlock block{"my_block"};
@@ -135,6 +189,33 @@ TEST(Tracing, records_traceId_across_futures_no_early_tracepoint) {
             << "The block's end tracepoint should not have been logged yet";
       });
   fut.wait();
+}
+
+// Threads that run in the same RequestContext share one TraceRequestData.
+TEST(Tracing, blocks_on_two_threads_in_one_request_context) {
+  (void)getAllTracepoints();
+  enableTracing();
+  auto ctx = std::make_shared<folly::RequestContext>();
+  {
+    folly::RequestContextScopeGuard guard{ctx};
+    TraceBlock first{"first"};
+  }
+  std::barrier sync{2};
+  auto work = [&] {
+    folly::RequestContextScopeGuard guard{ctx};
+    TraceBlock block{"worker"};
+    sync.arrive_and_wait();
+  };
+  std::thread a{work};
+  std::thread b{work};
+  a.join();
+  b.join();
+
+  auto points = getAllTracepoints();
+  ASSERT_EQ(6, points.size());
+  for (const auto& point : points) {
+    EXPECT_EQ(points[0].traceId, point.traceId);
+  }
 }
 
 TEST(Tracing, does_not_record_if_disabled) {

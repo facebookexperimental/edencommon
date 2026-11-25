@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 
 #include <folly/ClockGettimeWrappers.h>
@@ -94,8 +95,10 @@ class TraceRequestData : public folly::RequestData {
     return false;
   }
 
-  uint64_t traceId{0};
-  uint64_t blockId{0};
+  // Every thread running in the same RequestContext shares this object.
+  const uint64_t traceId{generateUniqueID()};
+  // Relaxed ordering is enough: the block id only labels trace points.
+  std::atomic<uint64_t> blockId{0};
 };
 
 extern folly::RequestToken tracingToken;
@@ -107,11 +110,16 @@ class Tracer {
     XCHECK(context != nullptr);
 
     const auto& token = tracingToken;
-    if (!context->hasContextData(token)) [[unlikely]] {
-      auto reqData = std::make_unique<TraceRequestData>();
-      context->setContextData(token, std::move(reqData));
-    }
     folly::RequestData* data = context->getContextData(token);
+    if (data == nullptr) [[unlikely]] {
+      // Another thread in the same context may get here first.
+      // setContextData would then replace its data with nullptr;
+      // setContextDataIfAbsent keeps whichever data was set first.
+      context->setContextDataIfAbsent(
+          token, std::make_unique<TraceRequestData>());
+      data = context->getContextData(token);
+      XCHECK(data != nullptr);
+    }
     return *static_cast<TraceRequestData*>(data);
   }
 
@@ -205,11 +213,7 @@ class TraceBlock {
     if (detail::globalTracer.isEnabled()) {
       blockId_ = generateUniqueID();
       auto& reqData = detail::Tracer::getRequestData();
-      if (!reqData.traceId) {
-        reqData.traceId = generateUniqueID();
-      }
-
-      parentBlockId_ = reqData.blockId;
+      parentBlockId_ = reqData.blockId.load(std::memory_order_relaxed);
       detail::globalTracer.getThreadLocalTracePoints().trace(
           reqData.traceId,
           blockId_,
@@ -217,7 +221,7 @@ class TraceBlock {
           name,
           /* start = */ true,
           /* stop = */ false);
-      reqData.blockId = blockId_;
+      reqData.blockId.store(blockId_, std::memory_order_relaxed);
     }
   }
 
@@ -253,7 +257,7 @@ class TraceBlock {
           nullptr,
           /* start = */ false,
           /* stop = */ true);
-      reqData.blockId = parentBlockId_;
+      reqData.blockId.store(parentBlockId_, std::memory_order_relaxed);
       blockId_ = 0;
     }
   }
