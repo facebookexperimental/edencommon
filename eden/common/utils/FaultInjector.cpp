@@ -61,8 +61,8 @@ ImmediateFuture<Unit> FaultInjector::checkAsyncImpl(
             XLOGF(
                 DBG1, "blockWithCancel fault hit: {}, {}", keyClass, keyValue);
             return pollCancellationToken(
-                       keyClass,
-                       keyValue,
+                       std::string{keyClass},
+                       std::string{keyValue},
                        blockWithCancel.cancellationToken,
                        blockWithCancel.timeoutDuration)
                 .semi();
@@ -114,8 +114,8 @@ folly::coro::now_task<Unit> FaultInjector::co_checkAsyncImpl(
           std::get_if<FaultInjector::BlockWithCancel>(&behavior)) {
     XLOGF(DBG1, "blockWithCancel fault hit: {}, {}", keyClass, keyValue);
     co_await pollCancellationToken(
-        keyClass,
-        keyValue,
+        std::string{keyClass},
+        std::string{keyValue},
         blockWithCancel->cancellationToken,
         blockWithCancel->timeoutDuration);
     co_return folly::unit;
@@ -516,8 +516,8 @@ bool FaultInjector::waitUntilBlocked(
 }
 
 folly::coro::Task<folly::Unit> FaultInjector::pollCancellationToken(
-    std::string_view keyClass,
-    std::string_view keyValue,
+    std::string keyClass,
+    std::string keyValue,
     folly::CancellationToken cancellationToken,
     std::chrono::milliseconds timeout) {
   XLOGF(

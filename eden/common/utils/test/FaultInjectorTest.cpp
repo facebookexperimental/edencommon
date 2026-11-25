@@ -9,6 +9,11 @@
 
 #include <cstdlib>
 
+#include <folly/CancellationToken.h>
+#include <folly/coro/BlockingWait.h>
+#include <folly/logging/LogCategory.h>
+#include <folly/logging/LogLevel.h>
+#include <folly/logging/LoggerDB.h>
 #include <folly/portability/GTest.h>
 #include <folly/stop_watch.h>
 #include <folly/test/TestUtils.h>
@@ -299,4 +304,62 @@ TEST(FaultInjector, waitUntilBlocked) {
   before = std::chrono::steady_clock::now();
   EXPECT_FALSE(faultInjector.waitUntilBlocked("mount", 1s));
   EXPECT_LE(1s, std::chrono::steady_clock::now() - before);
+}
+
+namespace {
+// pollCancellationToken logs the keys at DBG3.
+class ScopedDbg3Logging {
+ public:
+  ScopedDbg3Logging() : oldLevel_{rootCategory_->getLevel()} {
+    folly::LoggerDB::get().setLevel(rootCategory_, folly::LogLevel::DBG3);
+  }
+  ~ScopedDbg3Logging() {
+    folly::LoggerDB::get().setLevel(rootCategory_, oldLevel_);
+  }
+
+ private:
+  folly::LogCategory* rootCategory_{folly::LoggerDB::get().getCategory("")};
+  folly::LogLevel oldLevel_;
+};
+} // namespace
+
+TEST(FaultInjector, waitForCancelOrTimeoutAfterKeyIsDestroyed) {
+  ScopedDbg3Logging logging;
+
+  FaultInjector fi(true);
+  fi.injectBlockWithCancel(
+      std::string(64, 'c'), ".*", folly::CancellationToken{});
+
+  folly::CancellationSource cancellation;
+  // Both keys are heap allocated and are destroyed before the returned future
+  // is waited on: the key class is a temporary, and the key value is built by
+  // waitForCancelOrTimeout from these arguments.
+  auto future = fi.waitForCancelOrTimeout(
+      std::string(64, 'c'), cancellation.getToken(), std::string(64, 'k'), 1);
+  cancellation.requestCancellation();
+  EXPECT_THROW(std::move(future).get(10s), folly::OperationCancelled);
+}
+
+TEST(FaultInjector, checkAsyncBlockWithCancelAfterKeyIsDestroyed) {
+  ScopedDbg3Logging logging;
+
+  FaultInjector fi(true);
+  fi.injectBlockWithCancel("cls", ".*", folly::CancellationToken{}, 10ms);
+  // checkAsync builds a heap-allocated key from these arguments and destroys
+  // it when it returns.
+  auto future = fi.checkAsync("cls", std::string(64, 'k'), 1);
+  EXPECT_THROW_RE(
+      std::move(future).get(10s),
+      std::runtime_error,
+      "BlockWithCancel timeout");
+}
+
+TEST(FaultInjector, coCheckAsyncBlockWithCancelTimesOut) {
+  FaultInjector fi(true);
+  fi.injectBlockWithCancel("cls", ".*", folly::CancellationToken{}, 1ms);
+  EXPECT_THROW_RE(
+      folly::coro::blockingWait(
+          fi.co_checkAsync("cls", std::string(64, 'k'), 1)),
+      std::runtime_error,
+      "BlockWithCancel timeout");
 }

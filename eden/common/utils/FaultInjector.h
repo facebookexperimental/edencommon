@@ -444,10 +444,13 @@ class FaultInjector {
    * This is a cooperative coroutine that yields periodically to avoid blocking.
    * Throws OperationCancelled if cancelled
    * Throws std::runtime_error if timeout occurs
+   *
+   * The keys are owned copies because the task is lazy: checkAsyncImpl()
+   * returns it unstarted, after the caller's key strings may be gone.
    */
   [[nodiscard]] folly::coro::Task<folly::Unit> pollCancellationToken(
-      std::string_view keyClass,
-      std::string_view keyValue,
+      std::string keyClass,
+      std::string keyValue,
       folly::CancellationToken cancellationToken,
       std::chrono::milliseconds timeout);
 
