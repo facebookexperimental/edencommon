@@ -888,7 +888,7 @@ class TmpWorkingDir {
   AbsolutePath oldDir{getcwd()};
   folly::test::TemporaryDirectory dir = makeTempDir();
   std::string pathStr{dir.path().string()};
-  AbsolutePathPiece path{canonicalPath(pathStr)};
+  AbsolutePath path{canonicalPath(pathStr)};
 };
 } // namespace
 
