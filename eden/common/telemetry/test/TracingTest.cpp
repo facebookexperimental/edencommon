@@ -7,6 +7,9 @@
 
 #include <folly/portability/GTest.h>
 
+#include <cstdlib>
+#include <thread>
+
 #include <folly/executors/ThreadedExecutor.h>
 #include <folly/futures/Future.h>
 
@@ -53,6 +56,17 @@ TEST(Tracing, records_block) {
   {
     TraceBlock block{"my_block"};
   }
+
+  ensureValidBlock();
+}
+
+TEST(Tracing, records_block_from_exited_thread) {
+  // Zeroes out all pending tracepoints from previous tests.
+  (void)getAllTracepoints();
+
+  enableTracing();
+  std::thread worker{[] { TraceBlock block{"my_block"}; }};
+  worker.join();
 
   ensureValidBlock();
 }
@@ -133,4 +147,24 @@ TEST(Tracing, does_not_record_if_disabled) {
   }
   auto points = getAllTracepoints();
   ASSERT_EQ(0, points.size());
+}
+
+TEST(TracingDeathTest, global_tracer_destruction_flushes_thread_local_points) {
+  GTEST_FLAG_SET(death_test_style, "threadsafe");
+  // globalTracer is destroyed during static destruction, so the scenario has
+  // to end its process. A thread that recorded points has exited, so the
+  // global vector owns a heap buffer, and the main thread still holds
+  // unflushed points when the process exits.
+  EXPECT_EXIT(
+      {
+        enableTracing();
+        std::thread worker{[] { TraceBlock block{"worker_block"}; }};
+        worker.join();
+        {
+          TraceBlock block{"main_block"};
+        }
+        std::exit(0);
+      },
+      testing::ExitedWithCode(0),
+      "");
 }

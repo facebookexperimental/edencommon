@@ -138,13 +138,16 @@ class Tracer {
   struct Tag {};
 
   folly::cacheline_aligned<std::atomic<bool>> enabled_{std::in_place, false};
-  folly::ThreadLocal<ThreadLocalTracePoints, Tag, folly::AccessModeStrict>
-      tltp_;
   // This is written to only when a thread dies and when
   // getAllTracepoints is invoked, though the latter will leave it
   // empty. As long as threads aren't continuously being created and
   // destroyed while tracing is on, this shouldn't grow large
+  //
+  // It must be declared before tltp_: destroying tltp_ destroys every
+  // thread's ThreadLocalTracePoints, which flush into this vector.
   folly::Synchronized<std::vector<CompactTracePoint>> tracepoints_;
+  folly::ThreadLocal<ThreadLocalTracePoints, Tag, folly::AccessModeStrict>
+      tltp_;
 };
 
 extern Tracer globalTracer;
